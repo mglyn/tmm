@@ -136,7 +136,7 @@ python scripts/backfill_main_tex.py --config configs/base_experiment.yaml
 编译论文：
 
 ```bash
-powershell -ExecutionPolicy Bypass -File build.ps1
+powershell -ExecutionPolicy Bypass -File tmm_paper/build.ps1
 ```
 
 ## 8. 推荐真实执行顺序

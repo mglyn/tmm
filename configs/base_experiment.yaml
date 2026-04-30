@@ -30,12 +30,12 @@ dataset:
     - sports
     - energy
     - transportation
-  stage_sample_targets:
-    stage1_description: 1775
-    stage2_basic_vqa: 1775
-    stage3_reasoning_vqa: 1775
-    stage4_visual_analysis: 5327
-    stage5_code_generation: 1775
+  expected_stage_counts:
+    stage1_description: 1973
+    stage2_basic_vqa: 1973
+    stage3_reasoning_vqa: 1973
+    stage4_visual_analysis: 5919
+    stage5_code_generation: 1973
   image:
     width: 960
     height: 720

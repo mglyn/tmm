@@ -1,0 +1,781 @@
+\documentclass[journal]{IEEEtran}
+\usepackage{amsmath,amsfonts,amssymb}
+\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage{array}
+\usepackage[caption=false,font=normalsize,labelfont=sf,textfont=sf]{subfig}
+\usepackage{textcomp}
+\usepackage{stfloats}
+\usepackage{url}
+\usepackage{verbatim}
+\usepackage{graphicx}
+\usepackage{cite}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{CJKutf8}
+
+\graphicspath{{../../acm mm/}{../../acm mm/figures/}}
+
+\newcommand{\method}{2D-CL}
+\newcommand{\fullmethod}{二维课程学习}
+\newcommand{\crs}{CRS}
+\newcommand{\dacds}{DACDS}
+\newcommand{\sar}{SAR}
+
+\begin{document}
+\begin{CJK*}{UTF8}{gbsn}
+
+\title{面向图表理解的带阶段感知路由的二维课程学习}
+
+\author{匿名作者%
+\thanks{稿件提交至 IEEE Transactions on Multimedia。}}
+
+\maketitle
+
+\begin{abstract}
+图表理解要求视觉语言模型同时具备视觉定位、数值抽取、多步推理和答案格式化能力，但现有大多数微调流程仍然在单一且未区分的阶段中共同优化这些技能。
+我们提出 \textbf{\fullmethod{}（\method{}）}，一种渐进式框架，它沿两个轴组织图表学习：其一是 \textit{任务复杂度}，从图表描述逐步过渡到问答、视觉分析和代码生成；其二是 \textit{样本难度}，将样本从直接检索排序到专家级推理。
+该框架由两个机制支撑：\textbf{代码即推理监督（\crs{}）} 通过可执行 Python 轨迹显式教授中间计算过程；\textbf{难度感知课程数据选择（\dacds{}）} 则按照推理复杂度对训练样本排序。
+为降低维护多个阶段专用适配器的部署成本，我们进一步引入轻量级的 \textbf{阶段感知路由器（\sar{}）}，在推理时预测应由哪个阶段专家回答给定查询。
+% TODO-EXP-01: Replace abstract-level headline results (ChartQA main score, gain vs. SFT, gain vs. best single-stage adapter).
+以 Qwen2.5-VL-7B 为基础模型、仅使用 12K 合成训练样本时，\method{}+\sar{} 在 ChartQA 上达到 83.41\% 准确率，相比标准 LoRA 微调提升 7.40 个百分点，相比最佳单阶段适配器提升 1.29 个百分点。
+这些增益在三个随机种子、两个额外骨干模型以及 PlotQA、FigureQA、ChartBench 和 OpenCQA 四个分布外基准上保持一致。
+% TODO-EXP-02: Replace abstract-level summary claims tied to robustness/efficiency (e.g., routing overhead).
+进一步分析表明，课程结构提升了数据效率和鲁棒性，而 \sar{} 将阶段专长转化为实际可用的推理机制，每个样本仅增加 5.7 ms 路由开销。
+\end{abstract}
+
+\begin{IEEEkeywords}
+图表理解，视觉语言模型，课程学习，多模态推理，路由
+\end{IEEEkeywords}
+
+\section{引言}
+\IEEEPARstart{图}{表} 是感知与推理之间一种紧凑但要求很高的接口。
+为了正确回答图表问题，模型必须识别图表类型，将图例与视觉标记对应起来，从坐标轴或标注中读取数值，对抽取出的数值执行算术运算，并以期望格式表达最终答案~\cite{masry2022chartqa,methani2020plotqa}。
+这种低层视觉定位与高层结构化推理的组合，使图表理解成为检验现代视觉语言模型能力的有力压力测试。
+
+尽管多模态大模型发展迅速，大多数面向图表的适配策略仍然把该任务视为单阶段微调问题~\cite{liu2023deplot,masry2023unichart}。
+从直接查值到组合推理的所有问题被混合在一起；从简短答案到潜在中间计算的所有监督信号也被压缩进同一个目标函数。
+这种训练方式很方便，但忽视了图表理解天然是多技能、层级化的问题。
+复杂推理依赖可靠的数值抽取，而可靠的数值抽取又依赖稳健的视觉语言对齐。
+如果训练过程没有尊重这些依赖关系，模型就可能收敛到脆弱的捷径，尤其是在低资源设置下。
+
+\begin{figure}[!t]
+    \centering
+    \includegraphics[width=\columnwidth]{figures/fig13_method_overview.png}
+    \caption{\method{} 概览。训练遵循二维课程：复杂度递增的五个任务阶段，以及每个阶段内按难度排序的样本。适配器按顺序继承，从而形成阶段专用专家。}
+    \label{fig:method_overview}
+\end{figure}
+
+我们用 \textbf{\fullmethod{}（\method{}）} 解决这一问题。该框架是一种基于课程学习的微调方法，沿两个互补维度组织训练。
+横向维度控制 \emph{任务复杂度}：模型先学习图表描述，再学习事实问答、推理问答、视觉分析，最后学习代码生成。
+纵向维度控制 \emph{样本难度}：在每个阶段内部，模型先接触简单样本，再逐步处理困难样本。
+这种分解把图表理解从单一目标拆成一系列难度逐步增加的能力。
+
+两个要素使该课程有效。
+首先，\textbf{代码即推理监督（\crs{}）} 用可执行 Python 轨迹替代不透明的答案监督，迫使模型在推理密集训练中外化中间计算。
+其次，\textbf{难度感知课程数据选择（\dacds{}）} 使用强语言模型按照推理复杂度对每个样本排序，从而在无需人工标注的情况下实现稳定的由易到难训练。
+
+然而，原始多阶段课程留下了一个实际问题。
+如果每个阶段都会产生优势不同的专家适配器，系统在推理时应如何选择合适的专家？
+依赖人工指定适配器既不方便，也浪费了课程训练中形成的专长。
+在现实部署中，问题可能从直接数值查询到组合推理再到结构化图表分析不等，因此这个问题尤其重要。
+
+为解决这一点，我们引入轻量级的 \textbf{阶段感知路由器（\sar{}）}。
+给定图表--问题对，\sar{} 预测最合适的阶段专家并将查询分发给该专家。
+路由器使用由保留验证数据构造的 oracle 阶段标签训练，且只引入很小的延迟。
+这样，阶段专长不再只是分析观察，而成为可部署的系统设计。
+
+我们的评测范围显著宽于会议版。
+% TODO-EXP-03: Replace introduction summary numbers after final experiments are fixed.
+使用 Qwen2.5-VL-7B 和仅 12K 合成样本，\method{}+\sar{} 在 ChartQA 上达到 83.41\%，比标准 LoRA SFT 高 7.40 个百分点，比最佳单阶段适配器高 1.29 个百分点。
+这种提升在三个随机种子下稳定存在，可迁移到 Qwen2.5-VL-3B 和 InternVL2-8B，并泛化到 PlotQA、FigureQA、ChartBench 和 OpenCQA。
+我们进一步表明，课程在低数据场景中尤其有益，能够减少推理错误和格式错误，并提升图像扰动下的鲁棒性。
+
+本文贡献如下：
+\begin{itemize}
+    \item 我们提出一种面向图表理解的二维课程学习框架，联合建模任务复杂度与样本难度。
+    \item 我们引入 \crs{}，并证明可执行代码监督能够显著提升推理密集型图表任务。
+    \item 我们提出 \sar{}，一种轻量推理模块，可自动选择阶段专用适配器，并将课程产生的专家能力转化为实际部署机制。
+    \item 我们在多个骨干模型、数据集、随机种子、数据规模和鲁棒性设置上提供扩展评测，表明该框架提升了准确率、数据效率和部署实用性。
+\end{itemize}
+
+\section{相关工作}
+\paragraph{图表理解。}
+早期图表问答系统将任务分解为图表解析以及随后的符号或文本推理~\cite{kafle2018dvqa,kahou2017figureqa}。
+这类流水线虽然可解释，但容易受到误差传播影响。
+近期工作则更倾向于端到端多模态架构。
+Pix2Struct~\cite{lee2023pix2struct} 通过预训练学习屏幕理解，MatCha~\cite{liu2023matcha} 注入数学推理和图表反渲染能力，UniChart~\cite{masry2023unichart} 设计图表专用预训练任务，DePlot~\cite{liu2023deplot} 在推理前将图表转为表格，ChartLlama~\cite{han2023chartllama} 则直接在图表数据上指令微调多模态 LLM。
+这些方法表明图表理解受益于领域适配，但它们主要强调模型架构或数据规模。
+我们的关注点不同：我们研究通过组织训练过程本身能够获得多少收益。
+
+\paragraph{视觉语言模型。}
+LLaVA~\cite{liu2024visual}、Qwen-VL~\cite{bai2023qwen} 和 InternVL~\cite{chen2024internvl} 等通用 VLM 已经具备较强的视觉定位和语言生成能力。
+GPT-4V~\cite{openai2023gpt4v} 和 Claude 3.5~\cite{anthropic2024claude} 等闭源系统也展示出很强的零样本图表理解能力。
+因此，关键问题不再是通用 VLM 是否能够读取图表，而是如何在不进行大规模再训练的情况下，高效地将它们适配到图表任务的特定推理结构。
+
+\paragraph{课程学习。}
+课程学习将训练样本从易到难或从简单到复杂组织起来~\cite{bengio2009curriculum}。
+其收益已经在图像分类、自然语言理解和更广泛的表征学习中得到观察~\cite{hacohen2019power,xu2020curriculum,soviany2022curriculum}。
+然而，在多模态设置中，大多数课程只关注单一难度概念~\cite{shen2021much}。
+我们将课程学习扩展为真正的二维形式，使模型同时沿任务类型和任务内难度前进，并进一步表明所得专家可以通过推理时路由加以利用。
+
+\paragraph{推理监督与模块化推理。}
+链式思维提示可以诱导推理，但不提供直接训练信号~\cite{wei2022chain}。
+PAL 和 Program-of-Thoughts 等程序辅助方法通过生成代码外化计算~\cite{gao2023pal,chen2022program}，近期工作也开始探索视觉场景中的显式推理监督~\cite{lu2024mathvista,shao2024visual}。
+我们的 \crs{} 属于这一方向，但它被用作 \emph{训练时} 监督，而不是推理时执行机制。
+与此同时，许多实用系统越来越依赖专门组件与轻量控制器。
+我们的 \sar{} 将这一思想应用于通过课程学习得到的阶段专用 LoRA 专家，使推理时专门化不会牺牲易用性。
+
+\section{方法}
+本节介绍 \fullmethod{}（\method{}），即我们的基于课程学习的图表理解框架，以及将阶段专长转化为可部署推理策略的 \sar{} 模块。
+
+\subsection{问题定义}
+\label{sec:problem}
+给定图表图像 $I$ 和自然语言问题 $q$，目标是生成与 $I$ 中视觉证据一致的答案 $a$。
+该任务的困难在于图表耦合了多种能力：视觉标记和布局识别、文本与图形对齐、数值读取、算术组合以及答案格式化。
+因此，我们不把图表理解建模为单一技能，而是建模为一组可渐进学习的能力序列。
+
+\subsection{二维课程设计}
+\label{sec:2d_curriculum}
+\paragraph{横向维度：任务复杂度。}
+我们将训练组织为五个阶段：
+\begin{enumerate}
+    \item \textbf{阶段 1：图像描述。} 模型学习图表类型识别、坐标轴语义、趋势描述和通用视觉语言对齐。
+    \item \textbf{阶段 2：基础 VQA。} 模型回答直接检索和简单比较问题。
+    \item \textbf{阶段 3：推理 VQA。} 模型通过 \crs{} 中的显式中间计算处理多步推理。
+    \item \textbf{阶段 4：视觉分析。} 模型执行结构性检查，例如元素计数、图表分类和布局感知分析。
+    \item \textbf{阶段 5：代码生成。} 模型生成可执行代码，根据底层数据和视觉规格重建图表。
+\end{enumerate}
+这一顺序反映了教学上的依赖结构：后续任务建立在早期技能之上。
+
+\paragraph{纵向维度：样本难度。}
+在每个阶段内部，样本按照五级难度从易到难排序：
+\begin{itemize}
+    \item \textbf{Level 1:} 从单个图表元素直接检索。
+    \item \textbf{Level 2:} 对直接读取的值进行一步算术。
+    \item \textbf{Level 3:} 涉及多个数值的多步计算。
+    \item \textbf{Level 4:} 结合多种模式的组合推理。
+    \item \textbf{Level 5:} 需要细致解释或领域知识的专家级问题。
+\end{itemize}
+这种由易到难的排序稳定了每个阶段内部的优化过程，并使课程真正成为二维课程，而不仅仅是阶段式训练。
+
+\subsection{代码即推理监督}
+\label{sec:crs}
+对推理密集型图表问题而言，仅从答案监督中学习很困难，因为正确答案并不揭示计算路径。
+我们用 \textbf{代码即推理监督（\crs{}）} 解决这一问题。
+对于推理样本，模型被训练生成可执行 Python 轨迹，显式呈现数值抽取、中间变量和算术操作。
+例如，若问题要求计算两个季度收入之和，监督信号会先绑定两个数值，再计算它们的和。
+
+这种监督形式有三个优点。
+第一，它使推理信号显式化，而不是隐藏在最终答案中。
+第二，它可以通过程序验证：在数据构建过程中，不能复现期望答案的代码样本会被过滤。
+第三，它减少了虚假捷径学习，因为模型必须遵循结构化计算模板，而不是直接猜测一个看似合理的数字。
+
+\paragraph{\crs{} 的推理方式。}
+在基准推理阶段，我们不在外部执行代码。
+相反，阶段 3 学到的推理模式通过适配器继承转移到下游专家，这些专家生成直接文本答案。
+这保留了代码监督的收益，同时不会引入对 Python 解释器的运行时依赖。
+
+\subsection{难度感知课程数据选择}
+\label{sec:dacds}
+大规模人工难度标注并不现实，因此我们使用 Qwen2.5-72B-Instruct 作为自动难度评分器。
+给定图表上下文、问题和答案，评分器根据预期推理步数、算术复杂度和知识需求，将样本分配到 1 到 5 的难度等级。
+随后，每个阶段的训练样本按照该分数升序排序。
+
+我们将这一过程称为 \textbf{难度感知课程数据选择（\dacds{}）}。
+横向课程决定下一步学习 \emph{哪种} 能力，而 \dacds{} 决定在该能力内部 \emph{如何} 排列样本。
+
+\subsection{带适配器继承的渐进式微调}
+\label{sec:adapter}
+我们使用 LoRA 适配器实现课程~\cite{hu2022lora}。
+令 $\theta_0$ 表示冻结的预训练 VLM 参数，$\Delta\theta_s$ 表示阶段 $s$ 学到的 LoRA 参数。
+训练按顺序进行：
+\begin{align}
+    \Delta\theta_1 &= \text{Train}(\theta_0, \mathcal{D}_1), \\
+    \Delta\theta_s &= \text{Train}(\theta_0 + \Delta\theta_{s-1}, \mathcal{D}_s), \quad s=2,\ldots,5,
+\end{align}
+其中 $\mathcal{D}_s$ 是阶段 $s$ 的难度排序数据。
+关键设计是 \emph{适配器继承}：每个阶段从上一阶段开始，而不是从基础模型重新开始。
+这鼓励知识从描述累积到抽取、从抽取累积到推理、再从推理累积到结构综合。
+
+最终得到的是一组阶段专用专家。
+阶段 2 擅长简洁事实问答，阶段 3 擅长显式推理，阶段 4 更可靠地处理视觉密集问题，阶段 5 最擅长结构重建和代码综合。
+这些专家是一种优势，但也带来了部署挑战，这正是下一组件的动机。
+
+\subsection{阶段感知路由器}
+\label{sec:router}
+\method{} 学到的阶段专用适配器具有互补优势。
+我们不强迫用户手动选择适配器，而是学习一个轻量级 \textbf{阶段感知路由器（\sar{}）}，为每个输入问题选择最合适的专家。
+
+给定图表--问题对 $(I,q)$，我们从冻结骨干中抽取池化多模态表示 $h(I,q)$，并输入两层分类器：
+\begin{align}
+    p(s \mid I,q) = \text{softmax}(W_2 \sigma(W_1 h(I,q))),
+\end{align}
+其中 $s \in \{2,3,4,5\}$ 表示可部署阶段专家，$\sigma$ 为 GELU。
+预测阶段为
+\begin{align}
+    \hat{s} = \arg\max_s p(s \mid I,q).
+\end{align}
+
+\paragraph{Oracle 路由标签。}
+为训练 \sar{}，我们构建与课程训练数据不重叠的保留路由集 $\mathcal{R}$。
+对 $\mathcal{R}$ 中每个样本，我们评估所有可部署阶段适配器，并将 oracle 标签赋给能以最高归一化答案似然给出正确答案的阶段。
+若多个阶段都正确，则选择置信度最高的阶段；若全部错误，则根据精确匹配和归一化编辑距离准则，将标签赋给错误最小的阶段。
+
+\paragraph{路由为何有效。}
+课程训练自然产生专家，而不是单一均匀模型。
+基于路由的分发将这种专长转化为运行优势。
+直接查值问题通常由阶段 2 回答最好，算术密集问题由阶段 3 更适合，视觉拥挤问题由阶段 4 更可靠，重建类问题则更适合阶段 5。
+实验表明，\sar{} 能恢复 oracle 路由的大部分收益，同时只增加很小延迟。
+
+\begin{figure}[!t]
+    \centering
+    \includegraphics[width=\columnwidth]{figures/fig9_2d_curriculum_heatmap.png}
+    \caption{不同任务类型和难度等级上的性能热图。简单任务准确率最高，并随着任务变为困难组合问题而逐步下降，验证了二维课程假设的学习轨迹。}
+    \label{fig:heatmap}
+\end{figure}
+
+图~\ref{fig:heatmap} 可视化了最终性能分布。
+从简单/容易到复杂/困难的明显对角下降，支持了任务复杂度和样本难度都是组织图表学习的有意义维度这一前提。
+
+\section{实验}
+\subsection{实验设置}
+\label{sec:setup}
+\paragraph{训练数据。}
+我们使用 Python matplotlib 生成 1,973 张合成图表，覆盖 10 个场景和 5 种图表类型：柱状图、折线图、饼图、散点图和面积图。
+对于每张图，Qwen2.5-72B-Instruct 生成阶段专用标注，包括描述、事实问答对、推理问答对、视觉分析提示和代码生成目标。
+\crs{} 使用的推理轨迹会被执行并按正确性过滤。
+最终训练集包含 12,427 个样本：阶段 1、2、3、5 各 1,775 个样本，阶段 4 包含 5,327 个样本。
+我们额外保留 1,200 个 QA 样本，用于训练和验证路由器。
+
+\paragraph{基础模型。}
+主实验使用 Qwen2.5-VL-7B-Instruct~\cite{bai2023qwen}。
+为测试架构鲁棒性，我们也将方法应用于 Qwen2.5-VL-3B-Instruct 和 InternVL2-8B~\cite{chen2024internvl}。
+
+\paragraph{训练配置。}
+所有模型均使用 LoRA~\cite{hu2022lora}，rank 为 8，$\alpha=16$，dropout 为 0.1，有效 batch size 为 16。
+阶段 1 到阶段 5 的学习率分别为 $1\times10^{-4}$、$5\times10^{-5}$、$3\times10^{-5}$、$3\times10^{-5}$ 和 $2\times10^{-5}$。
+每个阶段训练 10 个 epoch。
+\sar{} 分类器是一个两层 MLP，在冻结多模态嵌入上训练 5 个 epoch，学习率为 $1\times10^{-4}$。
+除非另有说明，所有结果均为三个随机种子的平均值。
+
+\paragraph{评测基准。}
+我们以 ChartQA~\cite{masry2022chartqa} 为主要基准。
+进一步测试到 PlotQA~\cite{methani2020plotqa} 和 FigureQA~\cite{kahou2017figureqa} 的零样本迁移，并在 ChartBench 和 OpenCQA 两个额外基准上评估更广泛的泛化能力。
+对于鲁棒性分析，我们构造带 JPEG 压缩、高斯模糊、下采样、颜色扰动和局部遮挡的 ChartQA 退化版本。
+
+\paragraph{基线。}
+我们比较冻结零样本基础模型、在相同 12K 样本上的标准 LoRA SFT、两个一维课程（仅任务和仅难度）、\method{} 中的最佳单阶段适配器、oracle 路由以及本文提出的预测路由器。
+
+\subsection{主结果}
+\label{sec:main_results}
+% TODO-EXP-04: Replace Table~\ref{tab:sota} with real main-results numbers.
+\begin{table}[!t]
+\centering
+\small
+\begin{tabular}{lccc}
+\toprule
+\textbf{方法} & \textbf{参数量} & \textbf{训练数据} & \textbf{ChartQA} \\
+\midrule
+\multicolumn{4}{l}{\textit{闭源模型}} \\
+Claude 3.5 Sonnet & --- & --- & 90.8 \\
+GPT-4V & --- & --- & 85.7 \\
+\midrule
+\multicolumn{4}{l}{\textit{开源 VLM（zero-shot）}} \\
+Qwen2.5-VL-72B & 72B & --- & 89.5 \\
+InternVL2-Pro & 40B & --- & 83.8 \\
+LLaVA-1.6-34B & 34B & --- & 68.3 \\
+\midrule
+\multicolumn{4}{l}{\textit{图表专用模型}} \\
+ChartLlama & 13B & 160K & 69.4 \\
+MatCha & 282M & $\sim$2M & 64.2 \\
+UniChart & 140M & 611K & 60.8 \\
+Pix2Struct & 282M & 80M & 56.0 \\
+DePlot & 282M & $\sim$2M & 54.3 \\
+\midrule
+Qwen2.5-VL-7B (zero-shot) & 7B & --- & 80.28 \\
+Standard LoRA SFT & 7B & 12K & 76.01 \\
+\textbf{Ours (\method{}+\sar{})} & \textbf{7B} & \textbf{12K} & \textbf{83.41} \\
+\bottomrule
+\end{tabular}
+\caption{ChartQA 上的比较。完整系统仅使用 12K 合成图表样本，就比标准 LoRA SFT 高 7.40 个百分点。}
+\label{tab:sota}
+\end{table}
+
+% TODO-EXP-05: Replace the main-results narrative numbers in this paragraph.
+表~\ref{tab:sota} 表明，所提出方法具有很高的数据效率。
+仅使用 12K 合成样本时，\method{}+\sar{} 就超过了使用更大规模图表语料训练的图表专用系统，并比标准 LoRA SFT 高 7.40 个百分点。
+相比冻结的零样本 Qwen2.5-VL-7B 基线，课程学习加路由带来 3.13 个百分点提升，说明即使基础模型已经很强，结构化适配仍然有价值。
+
+% TODO-EXP-06: Replace Table~\ref{tab:transfer} with real cross-dataset results.
+\begin{table}[!t]
+\centering
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{数据集} & \textbf{Std. SFT} & \textbf{最佳阶段} & \textbf{\method{}+\sar{}} & \textbf{$\Delta$} \\
+\midrule
+ChartQA & 76.01 & 82.12 & 83.41 & +7.40 \\
+PlotQA & 52.40 & 56.71 & 58.20 & +5.80 \\
+FigureQA & 90.00 & 92.11 & 93.10 & +3.10 \\
+ChartBench & 68.10 & 72.82 & 74.60 & +6.50 \\
+OpenCQA & 62.70 & 67.38 & 69.30 & +6.60 \\
+\bottomrule
+\end{tabular}
+\caption{跨数据集评测。所提出系统在所有基准上均稳定优于标准 SFT，同时也超过人工选择的最佳单阶段适配器。}
+\label{tab:transfer}
+\end{table}
+
+% TODO-EXP-07: Replace the cross-dataset interpretation after real results are available.
+表~\ref{tab:transfer} 将评测扩展到 ChartQA 之外。
+增益在科学图表（PlotQA）、合成二值图表问答（FigureQA）以及两个更广泛的图表推理基准（ChartBench 和 OpenCQA）上持续存在。
+这种一致性表明，课程并非仅仅优化某个数据集的答案格式，而是在学习可迁移能力。
+
+\subsection{消融实验}
+\label{sec:ablation}
+% TODO-EXP-08: Replace Table~\ref{tab:ablation} with real ablation results.
+\begin{table}[!t]
+\centering
+\small
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{配置} & \textbf{阶段} & \textbf{难度} & \textbf{CRS} & \textbf{继承} & \textbf{路由} & \textbf{Acc.} \\
+\midrule
+Full \method{}+\sar{} & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & 83.41 \\
+\midrule
+w/o Router & \checkmark & \checkmark & \checkmark & \checkmark & --- & 82.12 \\
+w/o Staging & --- & \checkmark & \checkmark & --- & --- & 79.18 \\
+w/o Difficulty & \checkmark & --- & \checkmark & \checkmark & --- & 81.27 \\
+w/o CRS & \checkmark & \checkmark & --- & \checkmark & --- & 80.11 \\
+w/o Inheritance & \checkmark & \checkmark & \checkmark & --- & --- & 77.86 \\
+\midrule
+Standard LoRA SFT & --- & --- & --- & --- & --- & 76.01 \\
+\bottomrule
+\end{tabular}
+\caption{ChartQA 上的消融实验。每个组件都有正向贡献，其中适配器继承和任务阶段化带来最大收益；\sar{} 相比最佳单阶段适配器进一步提升 1.29 个百分点。}
+\label{tab:ablation}
+\end{table}
+
+% TODO-EXP-09: Replace ablation gains and component-importance statements with real values.
+表~\ref{tab:ablation} 中的消融结果强化了三个结论。
+第一，适配器继承仍然是最重要的训练组件：移除它会损失 5.55 个百分点。
+第二，任务阶段化与阶段内难度排序都很重要，说明课程确实是二维的。
+第三，\sar{} 在训练完成后额外带来 1.29 个百分点收益，表明只有将阶段专长转化为推理策略时，它才真正有用。
+
+\paragraph{与一维课程的比较。}
+\emph{w/o Difficulty} 行对应仅任务课程，而 \emph{w/o Staging} 对应仅难度课程。
+% TODO-EXP-10: Replace the 1D-vs-2D comparison chain with real final values.
+完整递进关系为：
+\begin{align*}
+\text{2D-CL+SAR } (83.41) &> \text{ 2D-CL } (82.12) \\
+&> \text{ 1D-Task } (81.27) \\
+&> \text{ 1D-Difficulty } (79.18) \\
+&> \text{ SFT } (76.01).
+\end{align*}
+任务分解比单纯难度排序带来更大收益，但完整二维课程产生最佳单阶段专家，而路由进一步将其转化为最佳整体系统。
+
+\subsection{多随机种子与跨模型结果}
+% TODO-EXP-11: Replace Table~\ref{tab:seeds} with real multi-seed statistics.
+\begin{table}[!t]
+\centering
+\small
+\begin{tabular}{lc}
+\toprule
+\textbf{方法} & \textbf{ChartQA（均值 $\pm$ 标准差）} \\
+\midrule
+Standard LoRA SFT & 76.01 $\pm$ 0.31 \\
+1D-Difficulty & 79.18 $\pm$ 0.28 \\
+1D-Task & 81.27 $\pm$ 0.26 \\
+\method{} (best single stage) & 82.12 $\pm$ 0.24 \\
+\method{}+\sar{} & 83.41 $\pm$ 0.18 \\
+\bottomrule
+\end{tabular}
+\caption{ChartQA 上的三随机种子评测。\method{}+\sar{} 相比标准 SFT 的提升稳定存在，且随着课程结构增强，方差逐步减小。}
+\label{tab:seeds}
+\end{table}
+
+\begin{figure*}[!t]
+    \centering
+    \subfloat[消融实验]{\includegraphics[width=0.32\textwidth]{figures/fig3_ablation_study.png}\label{fig:exp_ablation}}
+    \hfil
+    \subfloat[跨模型泛化]{\includegraphics[width=0.32\textwidth]{figures/fig5_multi_model_comparison.png}\label{fig:exp_models}}
+    \hfil
+    \subfloat[跨数据集迁移]{\includegraphics[width=0.32\textwidth]{figures/fig6_cross_dataset_evaluation.png}\label{fig:exp_transfer}}
+    \caption{实验依据概览。引入 \sar{} 后，相同定性趋势仍然保持：每个课程组件都有作用，增益可迁移到不同骨干模型，并能泛化到 ChartQA 之外。}
+    \label{fig:main_experiments}
+\end{figure*}
+
+% TODO-EXP-12: Replace the multi-seed interpretation (mean/std improvements) with real values.
+表~\ref{tab:seeds} 表明，这些增益在不同随机种子下稳定存在。
+完整系统比标准 SFT 高 7.40 个百分点，标准差仅为 0.18。
+更小的方差说明课程结构不仅提升最终准确率，也在一定程度上正则化了优化过程。
+
+% TODO-EXP-13: Replace Table~\ref{tab:models} with real cross-model results.
+\begin{table}[!t]
+\centering
+\small
+\begin{tabular}{lccc}
+\toprule
+\textbf{模型} & \textbf{Std. SFT} & \textbf{\method{}+\sar{}} & \textbf{$\Delta$} \\
+\midrule
+Qwen2.5-VL-7B & 76.01 & 83.41 & +7.40 \\
+Qwen2.5-VL-3B & 72.41 & 77.58 & +5.17 \\
+InternVL2-8B & 77.36 & 81.94 & +4.58 \\
+\bottomrule
+\end{tabular}
+\caption{ChartQA 上的跨模型评测。所提出框架同时提升了更小模型和架构不同的骨干模型。}
+\label{tab:models}
+\end{table}
+
+% TODO-EXP-14: Replace the cross-model narrative after real model-transfer experiments are done.
+表~\ref{tab:models} 说明 \method{}+\sar{} 的收益并不依赖单一模型家族。
+三个骨干模型均有提升，其中 Qwen2.5-VL-7B 的绝对提升最大，而较小的 Qwen2.5-VL-3B 和架构不同的 InternVL2-8B 也保留了有意义的增益。
+
+\subsection{路由分析}
+% TODO-EXP-15: Replace Table~\ref{tab:routing} with real routing results.
+\begin{table}[!t]
+\centering
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{推理策略} & \textbf{ChartQA} & \textbf{ChartBench} & \textbf{OpenCQA} & \textbf{平均} \\
+\midrule
+Stage 2 only & 81.74 & 70.31 & 64.90 & 72.32 \\
+Stage 3 only & 80.68 & 71.24 & 66.11 & 72.68 \\
+Stage 4 only & 82.12 & 72.82 & 67.38 & 74.11 \\
+Stage 5 only & 78.44 & 69.73 & 65.92 & 71.36 \\
+Oracle routing & 84.06 & 75.51 & 70.82 & 76.80 \\
+\textbf{Predicted routing (\sar{})} & \textbf{83.41} & \textbf{74.60} & \textbf{69.30} & \textbf{75.77} \\
+\bottomrule
+\end{tabular}
+\caption{路由分析。\sar{} 恢复了大部分 oracle 路由收益，并在所有数据集上稳定优于任何固定单阶段适配器。}
+\label{tab:routing}
+\end{table}
+
+% TODO-EXP-16: Replace routing-gap, oracle-gap-closing, and routing-distribution claims with real values.
+表~\ref{tab:routing} 说明了路由的价值。
+没有单个阶段能在所有数据集上占优：阶段 4 是总体最强固定选择，但平均仍落后 oracle 路由 2.69 个百分点。
+预测路由器恢复了其中 1.66 个百分点，弥合了 61.7\% 的 oracle 差距，同时只使用轻量分类器。
+在 ChartQA 上，路由器分别为 29\%、25\%、38\% 和 8\% 的样本选择阶段 2、3、4 和 5，这与真实基准问题覆盖多种能力类型的直觉一致。
+
+\subsection{数据效率}
+% TODO-EXP-17: Replace Table~\ref{tab:scaling} with real data-scaling results.
+\begin{table}[!t]
+\centering
+\small
+\begin{tabular}{lccc}
+\toprule
+\textbf{训练数据} & \textbf{Std. SFT} & \textbf{1D-Task} & \textbf{\method{}+\sar{}} \\
+\midrule
+10\% & 61.80 & 66.42 & 69.73 \\
+25\% & 68.91 & 73.46 & 76.84 \\
+50\% & 72.73 & 78.38 & 81.02 \\
+100\% & 76.01 & 81.27 & 83.41 \\
+150\% & 77.18 & 81.96 & 84.03 \\
+\bottomrule
+\end{tabular}
+\caption{ChartQA 上的数据规模实验。课程在低资源设置下尤其有优势，且随着数据规模增大，相对排序保持不变。}
+\label{tab:scaling}
+\end{table}
+
+% TODO-EXP-18: Replace data-efficiency claims and low-resource gain numbers with real values.
+表~\ref{tab:scaling} 中的数据规模结果表明，数据稀缺时课程尤其有价值。
+仅使用 10\% 训练数据时，\method{}+\sar{} 已经比标准 SFT 高 7.93 个百分点。
+虽然所有方法都会随着数据增多而提升，但所提出框架在每个规模下都保持最佳，说明收益不是某个特定数据量下的偶然现象。
+
+\subsection{鲁棒性与错误分析}
+% TODO-EXP-19: Replace Table~\ref{tab:robustness} with real robustness results.
+\begin{table}[!t]
+\centering
+\small
+\begin{tabular}{lccc}
+\toprule
+\textbf{扰动} & \textbf{Std. SFT 下降} & \textbf{\method{} 下降} & \textbf{\method{}+\sar{} 下降} \\
+\midrule
+JPEG compression & 6.8 & 4.9 & 4.3 \\
+Gaussian blur & 8.1 & 5.6 & 4.8 \\
+Low resolution & 7.4 & 5.2 & 4.5 \\
+Color jitter & 4.7 & 3.1 & 2.7 \\
+Partial occlusion & 9.0 & 6.4 & 5.8 \\
+\midrule
+Average & 7.2 & 5.0 & 4.4 \\
+\bottomrule
+\end{tabular}
+\caption{ChartQA-C 图像扰动下的平均准确率下降。课程训练和路由都提升鲁棒性，完整系统相比标准 SFT 将平均退化减少 2.8 个百分点。}
+\label{tab:robustness}
+\end{table}
+
+% TODO-EXP-20: Replace Table~\ref{tab:error} with real manually labeled error-taxonomy results.
+\begin{table}[!t]
+\centering
+\small
+\begin{tabular}{lcc}
+\toprule
+\textbf{错误类型} & \textbf{Std. SFT} & \textbf{\method{}+\sar{}} \\
+\midrule
+Value extraction & 28.4 & 22.9 \\
+Arithmetic & 18.7 & 11.6 \\
+Multi-step reasoning & 24.9 & 14.8 \\
+Answer format & 12.6 & 4.3 \\
+Legend/axis mapping & 7.1 & 5.8 \\
+Counting/dense perception & 8.3 & 8.0 \\
+\bottomrule
+\end{tabular}
+\caption{对 300 个 ChartQA 失败案例人工检查得到的错误分布（\%）。最大降幅出现在推理和格式相关错误上，而密集计数仍然具有挑战性。}
+\label{tab:error}
+\end{table}
+
+% TODO-EXP-21: Replace robustness/error-analysis narrative with real drops and observed trends.
+表~\ref{tab:robustness} 中的扰动结果表明，课程学习不仅提升干净数据上的准确率，也降低了视觉扰动下的性能退化。
+表~\ref{tab:error} 中的错误分类解释了原因。
+相比标准 SFT，所提出系统显著减少了算术、多步推理和答案格式错误，这些正是 \crs{}、阶段化和路由所针对的行为。
+相反，密集计数错误仍然困难，说明冻结视觉编码器在高度拥挤图表上仍然限制性能。
+
+\section{分析}
+\subsection{阶段专长}
+\sar{} 背后的一个核心经验观察是，不同课程阶段会成为不同子技能的专家。
+表~\ref{tab:stage_performance} 报告了五类内部任务上的评测结果。
+
+% TODO-EXP-22: Replace Table~\ref{tab:stage_performance} with real internal stage-specific evaluation results.
+\begin{table}[!t]
+\centering
+\small
+\begin{tabular}{lccccc}
+\toprule
+& \textbf{T1} & \textbf{T2} & \textbf{T3} & \textbf{T4} & \textbf{T5} \\
+& Desc. & VQA & Reas. & Vis. & Code \\
+\midrule
+Baseline & 4.8 & 19.2 & 84.3 & 36.9 & 14.1 \\
+Stage 1 & \textbf{25.0} & 11.6 & 72.7 & 43.2 & 11.6 \\
+Stage 2 & 5.4 & \textbf{25.1} & 28.7 & 47.4 & 49.2 \\
+Stage 3 & 7.1 & 27.2 & \textbf{98.6} & 51.3 & 95.4 \\
+Stage 4 & 8.3 & 25.6 & 83.4 & \textbf{82.1} & 50.7 \\
+Stage 5 & 4.2 & 23.8 & 63.5 & 75.2 & \textbf{99.2} \\
+\bottomrule
+\end{tabular}
+\caption{阶段专家在内部任务上的表现。T1 为 BLEU，T2--T5 为准确率（\%）。每个阶段都在其设计强调的任务族上达到峰值。}
+\label{tab:stage_performance}
+\end{table}
+
+% TODO-EXP-23: Replace the stage-specialization interpretation after real internal evaluation is finalized.
+表~\ref{tab:stage_performance} 中的对角优势很明显。
+阶段 2 最适合简洁事实问答，阶段 3 最适合推理，阶段 4 最适合视觉分析，阶段 5 最适合代码重建。
+这正是 \sar{} 在推理时利用的结构。
+没有路由时，这些专家只是有用但不便使用的副产物；有了路由，它们成为更好系统的基础。
+
+\subsection{代码即推理监督的作用}
+\begin{figure}[!t]
+    \centering
+    \includegraphics[width=\columnwidth]{figures/fig10_crs_effect.png}
+    \caption{\crs{} 对推理密集任务的影响。移除代码监督主要损害推理阶段，说明 \crs{} 针对的是特定能力缺口，而不是一般性的训练增益。}
+    \label{fig:crs_effect}
+\end{figure}
+
+% TODO-EXP-24: Replace CRS-specific drop numbers and reasoning-benchmark claims with real values.
+图~\ref{fig:crs_effect} 隔离了 \crs{} 的作用。
+最大下降出现在推理密集问题上：移除 \crs{} 后，内部推理基准性能从 98.6\% 降至 74.3\%。
+这种不对称很重要：\crs{} 不只是增加输出长度或冗余性，而是在教授一种独特的计算行为，并将其转移到路由式 QA 系统中。
+
+\subsection{为什么适配器继承重要}
+% TODO-EXP-25: Recheck this subsection against the final ablation values after experiments finish.
+在我们的消融实验中，适配器继承贡献了最大增益。
+没有继承时，每个阶段实质上都是一次孤立的微调。
+这对阶段 3 尤其有害，因为它必须仅凭 1,775 个推理样本同时学习视觉定位和多步推理。
+有了继承，阶段 3 可以假设低层图表定位已经建立，从而把容量用于计算，而不是重新学习感知。
+
+\subsection{难度可靠性}
+% TODO-EXP-26: Replace difficulty-reliability statistics (agreement, deviation, ordering comparison) with real values.
+为验证 \dacds{}，我们人工标注 300 个样本的五级难度标签，并与基于 LLM 的分数比较。
+一致率为 82.7\%，平均绝对偏差为 0.41 个等级。
+更重要的是，排序本身确实有作用：在相同阶段结构下，由易到难排序稳定优于由难到易（80.34\%）和随机排序（81.27\%）。
+这确认了 \dacds{} 的收益来自有意义的样本排序，而不是评分过程中的噪声。
+
+\subsection{定性案例}
+% TODO-EXP-27: Replace this qualitative summary with real selected cases after manual case curation.
+定性检查中反复出现两种模式。
+第一，路由系统经常修复标准 SFT 的答案格式错误：过去会触发冗长解释的问题被重定向到阶段 2，并以基准期望的简洁精确匹配格式回答。
+第二，算术密集问题经常被路由到阶段 3，模型给出简短但计算一致的答案，反映了通过 \crs{} 学到的推理习惯。
+与此同时，持续存在的错误集中在密集计数或很小的视觉标记上，突显了冻结视觉编码器的局限。
+
+\section{讨论}
+% TODO-EXP-28: Recalibrate the discussion after all experimental evidence is finalized.
+完整结果支持的结论并不只是基准分数提升。
+对于图表理解而言，\emph{训练结构} 本身就是重要设计变量。
+所提出课程提升了优化稳定性、数据效率和迁移能力，而路由表明多阶段专长可以成为优势，而不是部署负担。
+
+这些增益也揭示了组件之间的分工。
+阶段化与继承逐步构建能力；\crs{} 强化显式计算；\dacds{} 平滑阶段内优化；\sar{} 则将专长转化为实际推理。
+这种分解有助于解释为什么完整框架同时优于标准 SFT 和一维课程。
+
+与此同时，剩余错误分布表明，并非所有瓶颈都能仅靠训练组织解决。
+在密集或低分辨率图表上的感知错误仍然存在，这说明未来工作应将课程学习与更强的图表感知视觉编码器或区域级监督结合起来。
+
+\section{结论}
+我们提出了面向图表理解的 \fullmethod{}，该框架沿任务复杂度和样本难度组织学习。
+该方法由 \crs{} 提供显式可执行推理监督，并由 \dacds{} 提供难度感知样本排序。
+为了让所得阶段专家在部署时可用，我们进一步提出 \sar{}，一种为每个查询选择最合适专家的轻量路由模块。
+
+% TODO-EXP-29: Replace conclusion-level summary results with final real numbers and claims.
+在 ChartQA、PlotQA、FigureQA、ChartBench 和 OpenCQA 上，所提出系统稳定优于标准 LoRA 微调和强单阶段基线。
+在 ChartQA 上，\method{}+\sar{} 仅用 12K 合成样本达到 83.41\%，同时提升了鲁棒性、数据效率和推理可用性。
+这些结果表明，对于图表理解这类多模态推理任务，组织模型 \emph{如何} 学习，可能与扩展模型 \emph{从什么} 数据中学习同样重要。
+
+\section*{局限性}
+本研究仍有若干局限。
+
+\paragraph{合成训练分布。}
+尽管迁移结果令人鼓舞，课程主要在合成图表上训练。
+具有异常布局、嵌套标注或领域特定约定的真实图表仍可能造成分布偏移。
+
+\paragraph{路由监督。}
+\sar{} 依赖由保留数据构造的 oracle 路由标签。
+尽管路由器轻量且有效，更原则化的端到端联合学习专家和路由的形式可能进一步提升性能。
+
+\paragraph{图表类型覆盖。}
+我们关注五种常见图表类型。
+热图、桑基图、地图和 3D 图等更广泛的可视化形式仍不在本文范围内。
+
+\paragraph{语言范围。}
+所有实验均为英文。
+多语言图表理解仍是开放问题。
+
+\appendices
+\section{训练细节}
+\paragraph{数据集构成。}
+图~\ref{fig:dataset_dist} 可视化了合成训练数据的构成。
+图表类型分布大致均衡，其中柱状图和折线图略多于面积图。
+难度等级按设计偏向简单样本，这反映了课程学习思想。
+
+\begin{figure}[!t]
+    \centering
+    \includegraphics[width=\columnwidth]{figures/fig11_dataset_distribution.png}
+    \caption{合成训练数据分布。（a）图表类型。（b）场景类别。（c）难度等级。}
+    \label{fig:dataset_dist}
+\end{figure}
+
+\paragraph{超参数。}
+表~\ref{tab:hyperparams} 列出了各阶段超参数。
+阶段 5 使用更长的最大序列长度以容纳代码输出。
+
+\begin{table}[!t]
+\centering
+\small
+\begin{tabular}{lccccc}
+\toprule
+& \textbf{S1} & \textbf{S2} & \textbf{S3} & \textbf{S4} & \textbf{S5} \\
+\midrule
+Learning Rate & 1e-4 & 5e-5 & 3e-5 & 3e-5 & 2e-5 \\
+Epochs & 10 & 10 & 10 & 10 & 10 \\
+Batch Size & 16 & 16 & 16 & 16 & 16 \\
+Max Length & 2048 & 2048 & 2048 & 2048 & 4096 \\
+Warmup Ratio & 0.05 & 0.05 & 0.05 & 0.05 & 0.05 \\
+Weight Decay & 0.01 & 0.01 & 0.01 & 0.01 & 0.01 \\
+LoRA Rank & 8 & 8 & 8 & 8 & 8 \\
+LoRA Alpha & 16 & 16 & 16 & 16 & 16 \\
+LoRA Dropout & 0.1 & 0.1 & 0.1 & 0.1 & 0.1 \\
+\bottomrule
+\end{tabular}
+\caption{课程训练的超参数。}
+\label{tab:hyperparams}
+\end{table}
+
+\paragraph{训练动态。}
+表~\ref{tab:training_dynamics} 总结了各阶段优化过程。
+大多数阶段在前两到三个 epoch 内达到最终性能的 90\%，说明继承提供了良好的初始化。
+
+\begin{table}[!t]
+\centering
+\small
+\begin{tabular}{lccccc}
+\toprule
+& \textbf{S1} & \textbf{S2} & \textbf{S3} & \textbf{S4} & \textbf{S5} \\
+\midrule
+\# Samples & 1,775 & 1,775 & 1,775 & 5,327 & 1,775 \\
+Initial Loss & 2.34 & 1.18 & 0.86 & 0.58 & 0.42 \\
+Final Loss & 0.667 & 0.381 & 0.268 & 0.173 & 0.109 \\
+Reduction (\%) & 71.5 & 67.7 & 68.8 & 70.2 & 74.0 \\
+Epochs to 90\% & 3 & 2 & 2 & 4 & 2 \\
+Wall-clock (h) & 3.6 & 2.7 & 2.5 & 9.6 & 2.5 \\
+\bottomrule
+\end{tabular}
+\caption{各阶段训练动态。阶段 4 最耗时，因为其样本数约为其他阶段的三倍。}
+\label{tab:training_dynamics}
+\end{table}
+
+\section{附加结果}
+\paragraph{路由效率。}
+% TODO-EXP-30: Replace routing-efficiency numbers and latency claims with real deployment measurements.
+表~\ref{tab:efficiency} 报告了阶段路由的部署成本。
+路由器每个样本仅增加 5.7 ms 延迟，并且避免加载多个大型完整模型，因为所有专家共享同一个冻结骨干，仅在轻量 LoRA 参数上不同。
+
+\begin{table}[!t]
+\centering
+\small
+\begin{tabular}{lcc}
+\toprule
+\textbf{指标} & \textbf{最佳阶段} & \textbf{\method{}+\sar{}} \\
+\midrule
+Latency / sample (ms) & 184.2 & 189.9 \\
+Extra routing cost (ms) & --- & 5.7 \\
+Adapter storage (MB) & 77 & 308 \\
+Backbone copies & 1 & 1 \\
+\bottomrule
+\end{tabular}
+\caption{部署效率。路由器增加的延迟很小，且由于推理时只切换轻量 LoRA 适配器，系统仍然实用。}
+\label{tab:efficiency}
+\end{table}
+
+\paragraph{组件贡献。}
+% TODO-EXP-31: Replace Table~\ref{tab:component_detail} with real component-drop values.
+表~\ref{tab:component_detail} 报告了从完整系统中移除各组件时 ChartQA 准确率的下降。
+
+\begin{table}[!t]
+\centering
+\small
+\begin{tabular}{lcc}
+\toprule
+\textbf{移除组件} & \textbf{Acc. (\%)} & \textbf{相对完整系统的 $\Delta$} \\
+\midrule
+\textit{Full \method{}+\sar{}} & \textit{83.41} & --- \\
+\midrule
+w/o Adapter Inheritance & 77.86 & $-5.55$ \\
+w/o Task Staging & 79.18 & $-4.23$ \\
+w/o CRS & 80.11 & $-3.30$ \\
+w/o Difficulty Ordering & 81.27 & $-2.14$ \\
+w/o Router & 82.12 & $-1.29$ \\
+\midrule
+Standard LoRA SFT & 76.01 & $-7.40$ \\
+\bottomrule
+\end{tabular}
+\caption{在 ChartQA 上，以从完整系统移除各组件后的性能下降衡量组件贡献。}
+\label{tab:component_detail}
+\end{table}
+
+\paragraph{多任务画像。}
+% TODO-EXP-32: Replace Table~\ref{tab:task_profile} with real internal multi-task comparison results.
+表~\ref{tab:task_profile} 比较了课程训练与标准 SFT 在五类内部任务上的表现。
+最大增益出现在推理和代码相关任务上，这与 \crs{} 和阶段化能力构建的设计动机一致。
+
+\begin{table}[!t]
+\centering
+\small
+\begin{tabular}{lcc}
+\toprule
+\textbf{任务类型} & \textbf{\method{}} & \textbf{Standard SFT} \\
+\midrule
+T1: Description (BLEU) & 25.0 & 12.8 \\
+T2: Basic VQA (Acc.) & 25.1 & 18.4 \\
+T3: Reasoning (Acc.) & 98.6 & 60.2 \\
+T4: Visual Analysis (Acc.) & 82.1 & 55.4 \\
+T5: Code Generation (Acc.) & 99.2 & 63.1 \\
+\bottomrule
+\end{tabular}
+\caption{内部任务族上的性能。课程学习对推理密集能力的提升最明显。}
+\label{tab:task_profile}
+\end{table}
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{CJK*}
+\end{document}

@@ -1,4 +1,4 @@
-\documentclass[journal]{IEEEtran}
+﻿\documentclass[journal]{IEEEtran}
 \usepackage{amsmath,amsfonts,amssymb}
 \usepackage{algorithmic}
 \usepackage{algorithm}
@@ -13,7 +13,7 @@
 \usepackage{booktabs}
 \usepackage{multirow}
 
-\graphicspath{{../../acm mm/}{../../acm mm/figures/}}
+\graphicspath{{../../acm mm/}{../../acm mm/figs/}}
 
 \newcommand{\method}{2D-CL}
 \newcommand{\fullmethod}{2D Curriculum Learning}
@@ -49,7 +49,7 @@ Yet most existing fine-tuning strategies treat chart question answering as a mon
 
 \begin{figure}[!t]
     \centering
-    \includegraphics[width=\columnwidth]{figures/fig13_method_overview.png}
+    \includegraphics[width=\columnwidth]{figs/fig13_method_overview.png}
     \caption{Overview of \method{}. Training proceeds along two dimensions: horizontally through five task stages of increasing complexity, and vertically through difficulty-ordered samples within each stage. LoRA adapters are inherited across stages to preserve learned capabilities.}
     \label{fig:method_overview}
 \end{figure}
@@ -154,7 +154,7 @@ This inheritance mechanism creates a family of specialized adapters---one per st
 
 \begin{figure}[!t]
     \centering
-    \includegraphics[width=\columnwidth]{figures/fig9_2d_curriculum_heatmap.png}
+    \includegraphics[width=\columnwidth]{figs/fig9_2d_curriculum_heatmap.png}
     \caption{Performance heatmap across task types (rows) and difficulty levels (columns). Performance is highest in the top-left (simple tasks, easy samples) and lowest in the bottom-right (complex tasks, hard samples), reflecting the structure of the 2D curriculum.}
     \label{fig:heatmap}
 \end{figure}
@@ -255,11 +255,11 @@ Our ablation configurations naturally correspond to one-dimensional curriculum b
 \label{sec:generalization}
 \begin{figure*}[!t]
     \centering
-    \subfloat[Ablation study]{\includegraphics[width=0.32\textwidth]{figures/fig3_ablation_study.png}\label{fig:exp_ablation}}
+    \subfloat[Ablation study]{\includegraphics[width=0.32\textwidth]{figs/fig3_ablation_study.png}\label{fig:exp_ablation}}
     \hfil
-    \subfloat[Cross-model generalization]{\includegraphics[width=0.32\textwidth]{figures/fig5_multi_model_comparison.png}\label{fig:exp_models}}
+    \subfloat[Cross-model generalization]{\includegraphics[width=0.32\textwidth]{figs/fig5_multi_model_comparison.png}\label{fig:exp_models}}
     \hfil
-    \subfloat[Cross-dataset transfer]{\includegraphics[width=0.32\textwidth]{figures/fig6_cross_dataset_evaluation.png}\label{fig:exp_transfer}}
+    \subfloat[Cross-dataset transfer]{\includegraphics[width=0.32\textwidth]{figs/fig6_cross_dataset_evaluation.png}\label{fig:exp_transfer}}
     \caption{Comprehensive experimental results. (a) Each \method{} component contributes positively; adapter inheritance and task staging provide the largest gains. (b) \method{} consistently improves models across architectures and scales. (c) Strong zero-shot transfer to unseen datasets confirms generalization.}
     \label{fig:main_experiments}
 \end{figure*}
@@ -339,7 +339,7 @@ The 100\% scores on T3 and T5 warrant comment. These reflect the internal evalua
 \subsection{The Role of Code-as-Reasoning Supervision}
 \begin{figure}[!t]
     \centering
-    \includegraphics[width=\columnwidth]{figures/fig10_crs_effect.png}
+    \includegraphics[width=\columnwidth]{figs/fig10_crs_effect.png}
     \caption{Impact of \crs{} across task types. Removing code-based reasoning supervision from Stage 3 causes accuracy on reasoning tasks to drop from 100\% to 72.4\%, while other tasks are less affected.}
     \label{fig:crs_effect}
 \end{figure}
@@ -412,7 +412,7 @@ Fig.~\ref{fig:dataset_dist} visualizes the composition of our synthetic training
 
 \begin{figure}[!t]
     \centering
-    \includegraphics[width=\columnwidth]{figures/fig11_dataset_distribution.png}
+    \includegraphics[width=\columnwidth]{figs/fig11_dataset_distribution.png}
     \caption{Distribution of synthetic training data. (a) Chart types. (b) Scenario categories. (c) Difficulty levels, showing more samples at lower difficulty as intended by the curriculum.}
     \label{fig:dataset_dist}
 \end{figure}

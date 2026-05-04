@@ -15,7 +15,8 @@ function Write-Step {
 
 function Remove-BuildArtifacts {
     param(
-        [string]$BaseName
+        [string]$BaseName,
+        [string]$OutputDirectory
     )
 
     $extensions = @(
@@ -24,7 +25,7 @@ function Remove-BuildArtifacts {
     )
 
     foreach ($ext in $extensions) {
-        $path = Join-Path $PSScriptRoot "$BaseName.$ext"
+        $path = Join-Path $OutputDirectory "$BaseName.$ext"
         if (Test-Path $path) {
             Remove-Item $path -Force
         }
@@ -50,14 +51,21 @@ if (-not (Test-Path $mainPath)) {
 }
 
 $baseName = [System.IO.Path]::GetFileNameWithoutExtension($mainPath)
-$pdfPath = Join-Path $PSScriptRoot "$baseName.pdf"
 $texName = [System.IO.Path]::GetFileName($mainPath)
+$buildDir = Join-Path $PSScriptRoot "build"
+$pdfPath = Join-Path $buildDir "$baseName.pdf"
+$auxPath = Join-Path $buildDir "$baseName.aux"
+$bibtexTarget = "build/$baseName"
 
 Push-Location $PSScriptRoot
 try {
+    if (-not (Test-Path $buildDir)) {
+        New-Item -ItemType Directory -Path $buildDir | Out-Null
+    }
+
     if ($Clean) {
         Write-Step "Cleaning LaTeX build artifacts"
-        Remove-BuildArtifacts -BaseName $baseName
+        Remove-BuildArtifacts -BaseName $baseName -OutputDirectory $buildDir
     }
 
     $latexmk = Get-Command latexmk -ErrorAction SilentlyContinue
@@ -66,6 +74,7 @@ try {
         Write-Step "Using latexmk"
         Invoke-CheckedCommand -FilePath $latexmk.Source -ArgumentList @(
             "-pdf",
+            "-outdir=build",
             "-interaction=nonstopmode",
             "-halt-on-error",
             $texName
@@ -80,12 +89,12 @@ try {
         }
 
         Invoke-CheckedCommand -FilePath $pdflatex.Source -ArgumentList @(
+            "-output-directory=build",
             "-interaction=nonstopmode",
             "-halt-on-error",
             $texName
         )
 
-        $auxPath = Join-Path $PSScriptRoot "$baseName.aux"
         if (Test-Path $auxPath) {
             $auxContent = Get-Content $auxPath -Raw
             if ($auxContent -match "\\bibdata" -or (Test-Path (Join-Path $PSScriptRoot "references.bib"))) {
@@ -94,16 +103,18 @@ try {
                     throw "bibtex not found in PATH, but bibliography is required."
                 }
 
-                Invoke-CheckedCommand -FilePath $bibtex.Source -ArgumentList @($baseName)
+                Invoke-CheckedCommand -FilePath $bibtex.Source -ArgumentList @($bibtexTarget)
             }
         }
 
         Invoke-CheckedCommand -FilePath $pdflatex.Source -ArgumentList @(
+            "-output-directory=build",
             "-interaction=nonstopmode",
             "-halt-on-error",
             $texName
         )
         Invoke-CheckedCommand -FilePath $pdflatex.Source -ArgumentList @(
+            "-output-directory=build",
             "-interaction=nonstopmode",
             "-halt-on-error",
             $texName

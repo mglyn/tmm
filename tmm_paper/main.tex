@@ -1,4 +1,4 @@
-\documentclass[journal]{IEEEtran}
+﻿\documentclass[journal]{IEEEtran}
 \usepackage{amsmath,amsfonts,amssymb}
 \usepackage{algorithmic}
 \usepackage{algorithm}
@@ -13,7 +13,7 @@
 \usepackage{booktabs}
 \usepackage{multirow}
 
-\graphicspath{{../../acm mm/}{../../acm mm/figures/}}
+\graphicspath{{../../acm mm/}{../../acm mm/figs/}}
 
 \newcommand{\method}{2D-CL}
 \newcommand{\fullmethod}{Two-Dimensional Curriculum Learning}
@@ -59,7 +59,7 @@ When these dependencies are not respected during training, the model can converg
 
 \begin{figure}[!t]
     \centering
-    \includegraphics[width=\columnwidth]{figures/fig13_method_overview.png}
+    \includegraphics[width=\columnwidth]{figs/fig13_method_overview.png}
     \caption{Overview of \method{}. Training follows a two-dimensional curriculum: five task stages of increasing complexity and difficulty-ordered samples within each stage. Adapters are inherited sequentially, producing stage-specialized experts.}
     \label{fig:method_overview}
 \end{figure}
@@ -228,7 +228,7 @@ As shown in our experiments, \sar{} recovers much of the oracle routing gain whi
 
 \begin{figure}[!t]
     \centering
-    \includegraphics[width=\columnwidth]{figures/fig9_2d_curriculum_heatmap.png}
+    \includegraphics[width=\columnwidth]{figs/fig9_2d_curriculum_heatmap.png}
     \caption{Performance heatmap across task types and difficulty levels. Accuracy is highest on easy tasks and gradually declines toward hard compositional questions, validating the learning trajectory assumed by the two-dimensional curriculum.}
     \label{fig:heatmap}
 \end{figure}
@@ -394,11 +394,11 @@ Standard LoRA SFT & 76.01 $\pm$ 0.31 \\
 
 \begin{figure*}[!t]
     \centering
-    \subfloat[Ablation study]{\includegraphics[width=0.32\textwidth]{figures/fig3_ablation_study.png}\label{fig:exp_ablation}}
+    \subfloat[Ablation study]{\includegraphics[width=0.32\textwidth]{figs/fig3_ablation_study.png}\label{fig:exp_ablation}}
     \hfil
-    \subfloat[Cross-model generalization]{\includegraphics[width=0.32\textwidth]{figures/fig5_multi_model_comparison.png}\label{fig:exp_models}}
+    \subfloat[Cross-model generalization]{\includegraphics[width=0.32\textwidth]{figs/fig5_multi_model_comparison.png}\label{fig:exp_models}}
     \hfil
-    \subfloat[Cross-dataset transfer]{\includegraphics[width=0.32\textwidth]{figures/fig6_cross_dataset_evaluation.png}\label{fig:exp_transfer}}
+    \subfloat[Cross-dataset transfer]{\includegraphics[width=0.32\textwidth]{figs/fig6_cross_dataset_evaluation.png}\label{fig:exp_transfer}}
     \caption{Overview of experimental evidence. The same qualitative trends remain after introducing \sar{}: each curriculum component matters, gains transfer across backbones, and the method generalizes beyond ChartQA.}
     \label{fig:main_experiments}
 \end{figure*}
@@ -564,7 +564,7 @@ Without routing, these experts remain a useful but inconvenient byproduct; with 
 \subsection{The Role of Code-as-Reasoning Supervision}
 \begin{figure}[!t]
     \centering
-    \includegraphics[width=\columnwidth]{figures/fig10_crs_effect.png}
+    \includegraphics[width=\columnwidth]{figs/fig10_crs_effect.png}
     \caption{Effect of \crs{} on reasoning-intensive tasks. Removing code-based supervision mainly hurts the reasoning stage, confirming that \crs{} targets a specific capability gap rather than acting as a generic training bonus.}
     \label{fig:crs_effect}
 \end{figure}
@@ -646,7 +646,7 @@ Difficulty levels are skewed toward easier examples by design, reflecting the cu
 
 \begin{figure}[!t]
     \centering
-    \includegraphics[width=\columnwidth]{figures/fig11_dataset_distribution.png}
+    \includegraphics[width=\columnwidth]{figs/fig11_dataset_distribution.png}
     \caption{Distribution of synthetic training data. (a) Chart types. (b) Scenario categories. (c) Difficulty levels.}
     \label{fig:dataset_dist}
 \end{figure}
@@ -776,3 +776,4 @@ T5: Code Generation (Acc.) & 99.2 & 63.1 \\
 \bibliography{references}
 
 \end{document}
+

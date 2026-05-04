@@ -1,4 +1,4 @@
-\documentclass[journal]{IEEEtran}
+﻿\documentclass[journal]{IEEEtran}
 \usepackage{amsmath,amsfonts,amssymb}
 \usepackage{algorithmic}
 \usepackage{algorithm}
@@ -14,10 +14,10 @@
 \usepackage{multirow}
 \usepackage{CJKutf8}
 
-\graphicspath{{../../acm mm/}{../../acm mm/figures/}}
+\graphicspath{{../../acm mm/}{../../acm mm/figs/}}
 
 \newcommand{\method}{2D-CL}
-\newcommand{\fullmethod}{二维课程学习}
+\newcommand{\fullmethod}{浜岀淮璇剧▼瀛︿範}
 \newcommand{\crs}{CRS}
 \newcommand{\dacds}{DACDS}
 \newcommand{\sar}{SAR}
@@ -25,249 +25,249 @@
 \begin{document}
 \begin{CJK*}{UTF8}{gbsn}
 
-\title{面向图表理解的带阶段感知路由的二维课程学习}
+\title{闈㈠悜鍥捐〃鐞嗚В鐨勫甫闃舵鎰熺煡璺敱鐨勪簩缁磋绋嬪涔爙
 
-\author{匿名作者%
-\thanks{稿件提交至 IEEE Transactions on Multimedia。}}
+\author{鍖垮悕浣滆€?
+\thanks{绋夸欢鎻愪氦鑷?IEEE Transactions on Multimedia銆倉}
 
 \maketitle
 
 \begin{abstract}
-图表理解要求视觉语言模型同时具备视觉定位、数值抽取、多步推理和答案格式化能力，但现有大多数微调流程仍然在单一且未区分的阶段中共同优化这些技能。
-我们提出 \textbf{\fullmethod{}（\method{}）}，一种渐进式框架，它沿两个轴组织图表学习：其一是 \textit{任务复杂度}，从图表描述逐步过渡到问答、视觉分析和代码生成；其二是 \textit{样本难度}，将样本从直接检索排序到专家级推理。
-该框架由两个机制支撑：\textbf{代码即推理监督（\crs{}）} 通过可执行 Python 轨迹显式教授中间计算过程；\textbf{难度感知课程数据选择（\dacds{}）} 则按照推理复杂度对训练样本排序。
-为降低维护多个阶段专用适配器的部署成本，我们进一步引入轻量级的 \textbf{阶段感知路由器（\sar{}）}，在推理时预测应由哪个阶段专家回答给定查询。
+鍥捐〃鐞嗚В瑕佹眰瑙嗚璇█妯″瀷鍚屾椂鍏峰瑙嗚瀹氫綅銆佹暟鍊兼娊鍙栥€佸姝ユ帹鐞嗗拰绛旀鏍煎紡鍖栬兘鍔涳紝浣嗙幇鏈夊ぇ澶氭暟寰皟娴佺▼浠嶇劧鍦ㄥ崟涓€涓旀湭鍖哄垎鐨勯樁娈典腑鍏卞悓浼樺寲杩欎簺鎶€鑳姐€?
+鎴戜滑鎻愬嚭 \textbf{\fullmethod{}锛圽method{}锛墋锛屼竴绉嶆笎杩涘紡妗嗘灦锛屽畠娌夸袱涓酱缁勭粐鍥捐〃瀛︿範锛氬叾涓€鏄?\textit{浠诲姟澶嶆潅搴锛屼粠鍥捐〃鎻忚堪閫愭杩囨浮鍒伴棶绛斻€佽瑙夊垎鏋愬拰浠ｇ爜鐢熸垚锛涘叾浜屾槸 \textit{鏍锋湰闅惧害}锛屽皢鏍锋湰浠庣洿鎺ユ绱㈡帓搴忓埌涓撳绾ф帹鐞嗐€?
+璇ユ鏋剁敱涓や釜鏈哄埗鏀拺锛歕textbf{浠ｇ爜鍗虫帹鐞嗙洃鐫ｏ紙\crs{}锛墋 閫氳繃鍙墽琛?Python 杞ㄨ抗鏄惧紡鏁欐巿涓棿璁＄畻杩囩▼锛沑textbf{闅惧害鎰熺煡璇剧▼鏁版嵁閫夋嫨锛圽dacds{}锛墋 鍒欐寜鐓ф帹鐞嗗鏉傚害瀵硅缁冩牱鏈帓搴忋€?
+涓洪檷浣庣淮鎶ゅ涓樁娈典笓鐢ㄩ€傞厤鍣ㄧ殑閮ㄧ讲鎴愭湰锛屾垜浠繘涓€姝ュ紩鍏ヨ交閲忕骇鐨?\textbf{闃舵鎰熺煡璺敱鍣紙\sar{}锛墋锛屽湪鎺ㄧ悊鏃堕娴嬪簲鐢卞摢涓樁娈典笓瀹跺洖绛旂粰瀹氭煡璇€?
 % TODO-EXP-01: Replace abstract-level headline results (ChartQA main score, gain vs. SFT, gain vs. best single-stage adapter).
-以 Qwen2.5-VL-7B 为基础模型、仅使用 12K 合成训练样本时，\method{}+\sar{} 在 ChartQA 上达到 83.41\% 准确率，相比标准 LoRA 微调提升 7.40 个百分点，相比最佳单阶段适配器提升 1.29 个百分点。
-这些增益在三个随机种子、两个额外骨干模型以及 PlotQA、FigureQA、ChartBench 和 OpenCQA 四个分布外基准上保持一致。
+浠?Qwen2.5-VL-7B 涓哄熀纭€妯″瀷銆佷粎浣跨敤 12K 鍚堟垚璁粌鏍锋湰鏃讹紝\method{}+\sar{} 鍦?ChartQA 涓婅揪鍒?83.41\% 鍑嗙‘鐜囷紝鐩告瘮鏍囧噯 LoRA 寰皟鎻愬崌 7.40 涓櫨鍒嗙偣锛岀浉姣旀渶浣冲崟闃舵閫傞厤鍣ㄦ彁鍗?1.29 涓櫨鍒嗙偣銆?
+杩欎簺澧炵泭鍦ㄤ笁涓殢鏈虹瀛愩€佷袱涓澶栭骞叉ā鍨嬩互鍙?PlotQA銆丗igureQA銆丆hartBench 鍜?OpenCQA 鍥涗釜鍒嗗竷澶栧熀鍑嗕笂淇濇寔涓€鑷淬€?
 % TODO-EXP-02: Replace abstract-level summary claims tied to robustness/efficiency (e.g., routing overhead).
-进一步分析表明，课程结构提升了数据效率和鲁棒性，而 \sar{} 将阶段专长转化为实际可用的推理机制，每个样本仅增加 5.7 ms 路由开销。
+杩涗竴姝ュ垎鏋愯〃鏄庯紝璇剧▼缁撴瀯鎻愬崌浜嗘暟鎹晥鐜囧拰椴佹鎬э紝鑰?\sar{} 灏嗛樁娈典笓闀胯浆鍖栦负瀹為檯鍙敤鐨勬帹鐞嗘満鍒讹紝姣忎釜鏍锋湰浠呭鍔?5.7 ms 璺敱寮€閿€銆?
 \end{abstract}
 
 \begin{IEEEkeywords}
-图表理解，视觉语言模型，课程学习，多模态推理，路由
+鍥捐〃鐞嗚В锛岃瑙夎瑷€妯″瀷锛岃绋嬪涔狅紝澶氭ā鎬佹帹鐞嗭紝璺敱
 \end{IEEEkeywords}
 
-\section{引言}
-\IEEEPARstart{图}{表} 是感知与推理之间一种紧凑但要求很高的接口。
-为了正确回答图表问题，模型必须识别图表类型，将图例与视觉标记对应起来，从坐标轴或标注中读取数值，对抽取出的数值执行算术运算，并以期望格式表达最终答案~\cite{masry2022chartqa,methani2020plotqa}。
-这种低层视觉定位与高层结构化推理的组合，使图表理解成为检验现代视觉语言模型能力的有力压力测试。
+\section{寮曡█}
+\IEEEPARstart{鍥緘{琛▆ 鏄劅鐭ヤ笌鎺ㄧ悊涔嬮棿涓€绉嶇揣鍑戜絾瑕佹眰寰堥珮鐨勬帴鍙ｃ€?
+涓轰簡姝ｇ‘鍥炵瓟鍥捐〃闂锛屾ā鍨嬪繀椤昏瘑鍒浘琛ㄧ被鍨嬶紝灏嗗浘渚嬩笌瑙嗚鏍囪瀵瑰簲璧锋潵锛屼粠鍧愭爣杞存垨鏍囨敞涓鍙栨暟鍊硷紝瀵规娊鍙栧嚭鐨勬暟鍊兼墽琛岀畻鏈繍绠楋紝骞朵互鏈熸湜鏍煎紡琛ㄨ揪鏈€缁堢瓟妗垀\cite{masry2022chartqa,methani2020plotqa}銆?
+杩欑浣庡眰瑙嗚瀹氫綅涓庨珮灞傜粨鏋勫寲鎺ㄧ悊鐨勭粍鍚堬紝浣垮浘琛ㄧ悊瑙ｆ垚涓烘楠岀幇浠ｈ瑙夎瑷€妯″瀷鑳藉姏鐨勬湁鍔涘帇鍔涙祴璇曘€?
 
-尽管多模态大模型发展迅速，大多数面向图表的适配策略仍然把该任务视为单阶段微调问题~\cite{liu2023deplot,masry2023unichart}。
-从直接查值到组合推理的所有问题被混合在一起；从简短答案到潜在中间计算的所有监督信号也被压缩进同一个目标函数。
-这种训练方式很方便，但忽视了图表理解天然是多技能、层级化的问题。
-复杂推理依赖可靠的数值抽取，而可靠的数值抽取又依赖稳健的视觉语言对齐。
-如果训练过程没有尊重这些依赖关系，模型就可能收敛到脆弱的捷径，尤其是在低资源设置下。
+灏界澶氭ā鎬佸ぇ妯″瀷鍙戝睍杩呴€燂紝澶у鏁伴潰鍚戝浘琛ㄧ殑閫傞厤绛栫暐浠嶇劧鎶婅浠诲姟瑙嗕负鍗曢樁娈靛井璋冮棶棰榽\cite{liu2023deplot,masry2023unichart}銆?
+浠庣洿鎺ユ煡鍊煎埌缁勫悎鎺ㄧ悊鐨勬墍鏈夐棶棰樿娣峰悎鍦ㄤ竴璧凤紱浠庣畝鐭瓟妗堝埌娼滃湪涓棿璁＄畻鐨勬墍鏈夌洃鐫ｄ俊鍙蜂篃琚帇缂╄繘鍚屼竴涓洰鏍囧嚱鏁般€?
+杩欑璁粌鏂瑰紡寰堟柟渚匡紝浣嗗拷瑙嗕簡鍥捐〃鐞嗚В澶╃劧鏄鎶€鑳姐€佸眰绾у寲鐨勯棶棰樸€?
+澶嶆潅鎺ㄧ悊渚濊禆鍙潬鐨勬暟鍊兼娊鍙栵紝鑰屽彲闈犵殑鏁板€兼娊鍙栧張渚濊禆绋冲仴鐨勮瑙夎瑷€瀵归綈銆?
+濡傛灉璁粌杩囩▼娌℃湁灏婇噸杩欎簺渚濊禆鍏崇郴锛屾ā鍨嬪氨鍙兘鏀舵暃鍒拌剢寮辩殑鎹峰緞锛屽挨鍏舵槸鍦ㄤ綆璧勬簮璁剧疆涓嬨€?
 
 \begin{figure}[!t]
     \centering
-    \includegraphics[width=\columnwidth]{figures/fig13_method_overview.png}
-    \caption{\method{} 概览。训练遵循二维课程：复杂度递增的五个任务阶段，以及每个阶段内按难度排序的样本。适配器按顺序继承，从而形成阶段专用专家。}
+    \includegraphics[width=\columnwidth]{figs/fig13_method_overview.png}
+    \caption{\method{} 姒傝銆傝缁冮伒寰簩缁磋绋嬶細澶嶆潅搴﹂€掑鐨勪簲涓换鍔￠樁娈碉紝浠ュ強姣忎釜闃舵鍐呮寜闅惧害鎺掑簭鐨勬牱鏈€傞€傞厤鍣ㄦ寜椤哄簭缁ф壙锛屼粠鑰屽舰鎴愰樁娈典笓鐢ㄤ笓瀹躲€倉
     \label{fig:method_overview}
 \end{figure}
 
-我们用 \textbf{\fullmethod{}（\method{}）} 解决这一问题。该框架是一种基于课程学习的微调方法，沿两个互补维度组织训练。
-横向维度控制 \emph{任务复杂度}：模型先学习图表描述，再学习事实问答、推理问答、视觉分析，最后学习代码生成。
-纵向维度控制 \emph{样本难度}：在每个阶段内部，模型先接触简单样本，再逐步处理困难样本。
-这种分解把图表理解从单一目标拆成一系列难度逐步增加的能力。
+鎴戜滑鐢?\textbf{\fullmethod{}锛圽method{}锛墋 瑙ｅ喅杩欎竴闂銆傝妗嗘灦鏄竴绉嶅熀浜庤绋嬪涔犵殑寰皟鏂规硶锛屾部涓や釜浜掕ˉ缁村害缁勭粐璁粌銆?
+妯悜缁村害鎺у埗 \emph{浠诲姟澶嶆潅搴锛氭ā鍨嬪厛瀛︿範鍥捐〃鎻忚堪锛屽啀瀛︿範浜嬪疄闂瓟銆佹帹鐞嗛棶绛斻€佽瑙夊垎鏋愶紝鏈€鍚庡涔犱唬鐮佺敓鎴愩€?
+绾靛悜缁村害鎺у埗 \emph{鏍锋湰闅惧害}锛氬湪姣忎釜闃舵鍐呴儴锛屾ā鍨嬪厛鎺ヨЕ绠€鍗曟牱鏈紝鍐嶉€愭澶勭悊鍥伴毦鏍锋湰銆?
+杩欑鍒嗚В鎶婂浘琛ㄧ悊瑙ｄ粠鍗曚竴鐩爣鎷嗘垚涓€绯诲垪闅惧害閫愭澧炲姞鐨勮兘鍔涖€?
 
-两个要素使该课程有效。
-首先，\textbf{代码即推理监督（\crs{}）} 用可执行 Python 轨迹替代不透明的答案监督，迫使模型在推理密集训练中外化中间计算。
-其次，\textbf{难度感知课程数据选择（\dacds{}）} 使用强语言模型按照推理复杂度对每个样本排序，从而在无需人工标注的情况下实现稳定的由易到难训练。
+涓や釜瑕佺礌浣胯璇剧▼鏈夋晥銆?
+棣栧厛锛孿textbf{浠ｇ爜鍗虫帹鐞嗙洃鐫ｏ紙\crs{}锛墋 鐢ㄥ彲鎵ц Python 杞ㄨ抗鏇夸唬涓嶉€忔槑鐨勭瓟妗堢洃鐫ｏ紝杩娇妯″瀷鍦ㄦ帹鐞嗗瘑闆嗚缁冧腑澶栧寲涓棿璁＄畻銆?
+鍏舵锛孿textbf{闅惧害鎰熺煡璇剧▼鏁版嵁閫夋嫨锛圽dacds{}锛墋 浣跨敤寮鸿瑷€妯″瀷鎸夌収鎺ㄧ悊澶嶆潅搴﹀姣忎釜鏍锋湰鎺掑簭锛屼粠鑰屽湪鏃犻渶浜哄伐鏍囨敞鐨勬儏鍐典笅瀹炵幇绋冲畾鐨勭敱鏄撳埌闅捐缁冦€?
 
-然而，原始多阶段课程留下了一个实际问题。
-如果每个阶段都会产生优势不同的专家适配器，系统在推理时应如何选择合适的专家？
-依赖人工指定适配器既不方便，也浪费了课程训练中形成的专长。
-在现实部署中，问题可能从直接数值查询到组合推理再到结构化图表分析不等，因此这个问题尤其重要。
+鐒惰€岋紝鍘熷澶氶樁娈佃绋嬬暀涓嬩簡涓€涓疄闄呴棶棰樸€?
+濡傛灉姣忎釜闃舵閮戒細浜х敓浼樺娍涓嶅悓鐨勪笓瀹堕€傞厤鍣紝绯荤粺鍦ㄦ帹鐞嗘椂搴斿浣曢€夋嫨鍚堥€傜殑涓撳锛?
+渚濊禆浜哄伐鎸囧畾閫傞厤鍣ㄦ棦涓嶆柟渚匡紝涔熸氮璐逛簡璇剧▼璁粌涓舰鎴愮殑涓撻暱銆?
+鍦ㄧ幇瀹為儴缃蹭腑锛岄棶棰樺彲鑳戒粠鐩存帴鏁板€兼煡璇㈠埌缁勫悎鎺ㄧ悊鍐嶅埌缁撴瀯鍖栧浘琛ㄥ垎鏋愪笉绛夛紝鍥犳杩欎釜闂灏ゅ叾閲嶈銆?
 
-为解决这一点，我们引入轻量级的 \textbf{阶段感知路由器（\sar{}）}。
-给定图表--问题对，\sar{} 预测最合适的阶段专家并将查询分发给该专家。
-路由器使用由保留验证数据构造的 oracle 阶段标签训练，且只引入很小的延迟。
-这样，阶段专长不再只是分析观察，而成为可部署的系统设计。
+涓鸿В鍐宠繖涓€鐐癸紝鎴戜滑寮曞叆杞婚噺绾х殑 \textbf{闃舵鎰熺煡璺敱鍣紙\sar{}锛墋銆?
+缁欏畾鍥捐〃--闂瀵癸紝\sar{} 棰勬祴鏈€鍚堥€傜殑闃舵涓撳骞跺皢鏌ヨ鍒嗗彂缁欒涓撳銆?
+璺敱鍣ㄤ娇鐢ㄧ敱淇濈暀楠岃瘉鏁版嵁鏋勯€犵殑 oracle 闃舵鏍囩璁粌锛屼笖鍙紩鍏ュ緢灏忕殑寤惰繜銆?
+杩欐牱锛岄樁娈典笓闀夸笉鍐嶅彧鏄垎鏋愯瀵燂紝鑰屾垚涓哄彲閮ㄧ讲鐨勭郴缁熻璁°€?
 
-我们的评测范围显著宽于会议版。
+鎴戜滑鐨勮瘎娴嬭寖鍥存樉钁楀浜庝細璁増銆?
 % TODO-EXP-03: Replace introduction summary numbers after final experiments are fixed.
-使用 Qwen2.5-VL-7B 和仅 12K 合成样本，\method{}+\sar{} 在 ChartQA 上达到 83.41\%，比标准 LoRA SFT 高 7.40 个百分点，比最佳单阶段适配器高 1.29 个百分点。
-这种提升在三个随机种子下稳定存在，可迁移到 Qwen2.5-VL-3B 和 InternVL2-8B，并泛化到 PlotQA、FigureQA、ChartBench 和 OpenCQA。
-我们进一步表明，课程在低数据场景中尤其有益，能够减少推理错误和格式错误，并提升图像扰动下的鲁棒性。
+浣跨敤 Qwen2.5-VL-7B 鍜屼粎 12K 鍚堟垚鏍锋湰锛孿method{}+\sar{} 鍦?ChartQA 涓婅揪鍒?83.41\%锛屾瘮鏍囧噯 LoRA SFT 楂?7.40 涓櫨鍒嗙偣锛屾瘮鏈€浣冲崟闃舵閫傞厤鍣ㄩ珮 1.29 涓櫨鍒嗙偣銆?
+杩欑鎻愬崌鍦ㄤ笁涓殢鏈虹瀛愪笅绋冲畾瀛樺湪锛屽彲杩佺Щ鍒?Qwen2.5-VL-3B 鍜?InternVL2-8B锛屽苟娉涘寲鍒?PlotQA銆丗igureQA銆丆hartBench 鍜?OpenCQA銆?
+鎴戜滑杩涗竴姝ヨ〃鏄庯紝璇剧▼鍦ㄤ綆鏁版嵁鍦烘櫙涓挨鍏舵湁鐩婏紝鑳藉鍑忓皯鎺ㄧ悊閿欒鍜屾牸寮忛敊璇紝骞舵彁鍗囧浘鍍忔壈鍔ㄤ笅鐨勯瞾妫掓€с€?
 
-本文贡献如下：
+鏈枃璐＄尞濡備笅锛?
 \begin{itemize}
-    \item 我们提出一种面向图表理解的二维课程学习框架，联合建模任务复杂度与样本难度。
-    \item 我们引入 \crs{}，并证明可执行代码监督能够显著提升推理密集型图表任务。
-    \item 我们提出 \sar{}，一种轻量推理模块，可自动选择阶段专用适配器，并将课程产生的专家能力转化为实际部署机制。
-    \item 我们在多个骨干模型、数据集、随机种子、数据规模和鲁棒性设置上提供扩展评测，表明该框架提升了准确率、数据效率和部署实用性。
+    \item 鎴戜滑鎻愬嚭涓€绉嶉潰鍚戝浘琛ㄧ悊瑙ｇ殑浜岀淮璇剧▼瀛︿範妗嗘灦锛岃仈鍚堝缓妯′换鍔″鏉傚害涓庢牱鏈毦搴︺€?
+    \item 鎴戜滑寮曞叆 \crs{}锛屽苟璇佹槑鍙墽琛屼唬鐮佺洃鐫ｈ兘澶熸樉钁楁彁鍗囨帹鐞嗗瘑闆嗗瀷鍥捐〃浠诲姟銆?
+    \item 鎴戜滑鎻愬嚭 \sar{}锛屼竴绉嶈交閲忔帹鐞嗘ā鍧楋紝鍙嚜鍔ㄩ€夋嫨闃舵涓撶敤閫傞厤鍣紝骞跺皢璇剧▼浜х敓鐨勪笓瀹惰兘鍔涜浆鍖栦负瀹為檯閮ㄧ讲鏈哄埗銆?
+    \item 鎴戜滑鍦ㄥ涓骞叉ā鍨嬨€佹暟鎹泦銆侀殢鏈虹瀛愩€佹暟鎹妯″拰椴佹鎬ц缃笂鎻愪緵鎵╁睍璇勬祴锛岃〃鏄庤妗嗘灦鎻愬崌浜嗗噯纭巼銆佹暟鎹晥鐜囧拰閮ㄧ讲瀹炵敤鎬с€?
 \end{itemize}
 
-\section{相关工作}
-\paragraph{图表理解。}
-早期图表问答系统将任务分解为图表解析以及随后的符号或文本推理~\cite{kafle2018dvqa,kahou2017figureqa}。
-这类流水线虽然可解释，但容易受到误差传播影响。
-近期工作则更倾向于端到端多模态架构。
-Pix2Struct~\cite{lee2023pix2struct} 通过预训练学习屏幕理解，MatCha~\cite{liu2023matcha} 注入数学推理和图表反渲染能力，UniChart~\cite{masry2023unichart} 设计图表专用预训练任务，DePlot~\cite{liu2023deplot} 在推理前将图表转为表格，ChartLlama~\cite{han2023chartllama} 则直接在图表数据上指令微调多模态 LLM。
-这些方法表明图表理解受益于领域适配，但它们主要强调模型架构或数据规模。
-我们的关注点不同：我们研究通过组织训练过程本身能够获得多少收益。
+\section{鐩稿叧宸ヤ綔}
+\paragraph{鍥捐〃鐞嗚В銆倉
+鏃╂湡鍥捐〃闂瓟绯荤粺灏嗕换鍔″垎瑙ｄ负鍥捐〃瑙ｆ瀽浠ュ強闅忓悗鐨勭鍙锋垨鏂囨湰鎺ㄧ悊~\cite{kafle2018dvqa,kahou2017figureqa}銆?
+杩欑被娴佹按绾胯櫧鐒跺彲瑙ｉ噴锛屼絾瀹规槗鍙楀埌璇樊浼犳挱褰卞搷銆?
+杩戞湡宸ヤ綔鍒欐洿鍊惧悜浜庣鍒扮澶氭ā鎬佹灦鏋勩€?
+Pix2Struct~\cite{lee2023pix2struct} 閫氳繃棰勮缁冨涔犲睆骞曠悊瑙ｏ紝MatCha~\cite{liu2023matcha} 娉ㄥ叆鏁板鎺ㄧ悊鍜屽浘琛ㄥ弽娓叉煋鑳藉姏锛孶niChart~\cite{masry2023unichart} 璁捐鍥捐〃涓撶敤棰勮缁冧换鍔★紝DePlot~\cite{liu2023deplot} 鍦ㄦ帹鐞嗗墠灏嗗浘琛ㄨ浆涓鸿〃鏍硷紝ChartLlama~\cite{han2023chartllama} 鍒欑洿鎺ュ湪鍥捐〃鏁版嵁涓婃寚浠ゅ井璋冨妯℃€?LLM銆?
+杩欎簺鏂规硶琛ㄦ槑鍥捐〃鐞嗚В鍙楃泭浜庨鍩熼€傞厤锛屼絾瀹冧滑涓昏寮鸿皟妯″瀷鏋舵瀯鎴栨暟鎹妯°€?
+鎴戜滑鐨勫叧娉ㄧ偣涓嶅悓锛氭垜浠爺绌堕€氳繃缁勭粐璁粌杩囩▼鏈韩鑳藉鑾峰緱澶氬皯鏀剁泭銆?
 
-\paragraph{视觉语言模型。}
-LLaVA~\cite{liu2024visual}、Qwen-VL~\cite{bai2023qwen} 和 InternVL~\cite{chen2024internvl} 等通用 VLM 已经具备较强的视觉定位和语言生成能力。
-GPT-4V~\cite{openai2023gpt4v} 和 Claude 3.5~\cite{anthropic2024claude} 等闭源系统也展示出很强的零样本图表理解能力。
-因此，关键问题不再是通用 VLM 是否能够读取图表，而是如何在不进行大规模再训练的情况下，高效地将它们适配到图表任务的特定推理结构。
+\paragraph{瑙嗚璇█妯″瀷銆倉
+LLaVA~\cite{liu2024visual}銆丵wen-VL~\cite{bai2023qwen} 鍜?InternVL~\cite{chen2024internvl} 绛夐€氱敤 VLM 宸茬粡鍏峰杈冨己鐨勮瑙夊畾浣嶅拰璇█鐢熸垚鑳藉姏銆?
+GPT-4V~\cite{openai2023gpt4v} 鍜?Claude 3.5~\cite{anthropic2024claude} 绛夐棴婧愮郴缁熶篃灞曠ず鍑哄緢寮虹殑闆舵牱鏈浘琛ㄧ悊瑙ｈ兘鍔涖€?
+鍥犳锛屽叧閿棶棰樹笉鍐嶆槸閫氱敤 VLM 鏄惁鑳藉璇诲彇鍥捐〃锛岃€屾槸濡備綍鍦ㄤ笉杩涜澶ц妯″啀璁粌鐨勬儏鍐典笅锛岄珮鏁堝湴灏嗗畠浠€傞厤鍒板浘琛ㄤ换鍔＄殑鐗瑰畾鎺ㄧ悊缁撴瀯銆?
 
-\paragraph{课程学习。}
-课程学习将训练样本从易到难或从简单到复杂组织起来~\cite{bengio2009curriculum}。
-其收益已经在图像分类、自然语言理解和更广泛的表征学习中得到观察~\cite{hacohen2019power,xu2020curriculum,soviany2022curriculum}。
-然而，在多模态设置中，大多数课程只关注单一难度概念~\cite{shen2021much}。
-我们将课程学习扩展为真正的二维形式，使模型同时沿任务类型和任务内难度前进，并进一步表明所得专家可以通过推理时路由加以利用。
+\paragraph{璇剧▼瀛︿範銆倉
+璇剧▼瀛︿範灏嗚缁冩牱鏈粠鏄撳埌闅炬垨浠庣畝鍗曞埌澶嶆潅缁勭粐璧锋潵~\cite{bengio2009curriculum}銆?
+鍏舵敹鐩婂凡缁忓湪鍥惧儚鍒嗙被銆佽嚜鐒惰瑷€鐞嗚В鍜屾洿骞挎硾鐨勮〃寰佸涔犱腑寰楀埌瑙傚療~\cite{hacohen2019power,xu2020curriculum,soviany2022curriculum}銆?
+鐒惰€岋紝鍦ㄥ妯℃€佽缃腑锛屽ぇ澶氭暟璇剧▼鍙叧娉ㄥ崟涓€闅惧害姒傚康~\cite{shen2021much}銆?
+鎴戜滑灏嗚绋嬪涔犳墿灞曚负鐪熸鐨勪簩缁村舰寮忥紝浣挎ā鍨嬪悓鏃舵部浠诲姟绫诲瀷鍜屼换鍔″唴闅惧害鍓嶈繘锛屽苟杩涗竴姝ヨ〃鏄庢墍寰椾笓瀹跺彲浠ラ€氳繃鎺ㄧ悊鏃惰矾鐢卞姞浠ュ埄鐢ㄣ€?
 
-\paragraph{推理监督与模块化推理。}
-链式思维提示可以诱导推理，但不提供直接训练信号~\cite{wei2022chain}。
-PAL 和 Program-of-Thoughts 等程序辅助方法通过生成代码外化计算~\cite{gao2023pal,chen2022program}，近期工作也开始探索视觉场景中的显式推理监督~\cite{lu2024mathvista,shao2024visual}。
-我们的 \crs{} 属于这一方向，但它被用作 \emph{训练时} 监督，而不是推理时执行机制。
-与此同时，许多实用系统越来越依赖专门组件与轻量控制器。
-我们的 \sar{} 将这一思想应用于通过课程学习得到的阶段专用 LoRA 专家，使推理时专门化不会牺牲易用性。
+\paragraph{鎺ㄧ悊鐩戠潱涓庢ā鍧楀寲鎺ㄧ悊銆倉
+閾惧紡鎬濈淮鎻愮ず鍙互璇卞鎺ㄧ悊锛屼絾涓嶆彁渚涚洿鎺ヨ缁冧俊鍙穨\cite{wei2022chain}銆?
+PAL 鍜?Program-of-Thoughts 绛夌▼搴忚緟鍔╂柟娉曢€氳繃鐢熸垚浠ｇ爜澶栧寲璁＄畻~\cite{gao2023pal,chen2022program}锛岃繎鏈熷伐浣滀篃寮€濮嬫帰绱㈣瑙夊満鏅腑鐨勬樉寮忔帹鐞嗙洃鐫\cite{lu2024mathvista,shao2024visual}銆?
+鎴戜滑鐨?\crs{} 灞炰簬杩欎竴鏂瑰悜锛屼絾瀹冭鐢ㄤ綔 \emph{璁粌鏃秨 鐩戠潱锛岃€屼笉鏄帹鐞嗘椂鎵ц鏈哄埗銆?
+涓庢鍚屾椂锛岃澶氬疄鐢ㄧ郴缁熻秺鏉ヨ秺渚濊禆涓撻棬缁勪欢涓庤交閲忔帶鍒跺櫒銆?
+鎴戜滑鐨?\sar{} 灏嗚繖涓€鎬濇兂搴旂敤浜庨€氳繃璇剧▼瀛︿範寰楀埌鐨勯樁娈典笓鐢?LoRA 涓撳锛屼娇鎺ㄧ悊鏃朵笓闂ㄥ寲涓嶄細鐗虹壊鏄撶敤鎬с€?
 
-\section{方法}
-本节介绍 \fullmethod{}（\method{}），即我们的基于课程学习的图表理解框架，以及将阶段专长转化为可部署推理策略的 \sar{} 模块。
+\section{鏂规硶}
+鏈妭浠嬬粛 \fullmethod{}锛圽method{}锛夛紝鍗虫垜浠殑鍩轰簬璇剧▼瀛︿範鐨勫浘琛ㄧ悊瑙ｆ鏋讹紝浠ュ強灏嗛樁娈典笓闀胯浆鍖栦负鍙儴缃叉帹鐞嗙瓥鐣ョ殑 \sar{} 妯″潡銆?
 
-\subsection{问题定义}
+\subsection{闂瀹氫箟}
 \label{sec:problem}
-给定图表图像 $I$ 和自然语言问题 $q$，目标是生成与 $I$ 中视觉证据一致的答案 $a$。
-该任务的困难在于图表耦合了多种能力：视觉标记和布局识别、文本与图形对齐、数值读取、算术组合以及答案格式化。
-因此，我们不把图表理解建模为单一技能，而是建模为一组可渐进学习的能力序列。
+缁欏畾鍥捐〃鍥惧儚 $I$ 鍜岃嚜鐒惰瑷€闂 $q$锛岀洰鏍囨槸鐢熸垚涓?$I$ 涓瑙夎瘉鎹竴鑷寸殑绛旀 $a$銆?
+璇ヤ换鍔＄殑鍥伴毦鍦ㄤ簬鍥捐〃鑰﹀悎浜嗗绉嶈兘鍔涳細瑙嗚鏍囪鍜屽竷灞€璇嗗埆銆佹枃鏈笌鍥惧舰瀵归綈銆佹暟鍊艰鍙栥€佺畻鏈粍鍚堜互鍙婄瓟妗堟牸寮忓寲銆?
+鍥犳锛屾垜浠笉鎶婂浘琛ㄧ悊瑙ｅ缓妯′负鍗曚竴鎶€鑳斤紝鑰屾槸寤烘ā涓轰竴缁勫彲娓愯繘瀛︿範鐨勮兘鍔涘簭鍒椼€?
 
-\subsection{二维课程设计}
+\subsection{浜岀淮璇剧▼璁捐}
 \label{sec:2d_curriculum}
-\paragraph{横向维度：任务复杂度。}
-我们将训练组织为五个阶段：
+\paragraph{妯悜缁村害锛氫换鍔″鏉傚害銆倉
+鎴戜滑灏嗚缁冪粍缁囦负浜斾釜闃舵锛?
 \begin{enumerate}
-    \item \textbf{阶段 1：图像描述。} 模型学习图表类型识别、坐标轴语义、趋势描述和通用视觉语言对齐。
-    \item \textbf{阶段 2：基础 VQA。} 模型回答直接检索和简单比较问题。
-    \item \textbf{阶段 3：推理 VQA。} 模型通过 \crs{} 中的显式中间计算处理多步推理。
-    \item \textbf{阶段 4：视觉分析。} 模型执行结构性检查，例如元素计数、图表分类和布局感知分析。
-    \item \textbf{阶段 5：代码生成。} 模型生成可执行代码，根据底层数据和视觉规格重建图表。
+    \item \textbf{闃舵 1锛氬浘鍍忔弿杩般€倉 妯″瀷瀛︿範鍥捐〃绫诲瀷璇嗗埆銆佸潗鏍囪酱璇箟銆佽秼鍔挎弿杩板拰閫氱敤瑙嗚璇█瀵归綈銆?
+    \item \textbf{闃舵 2锛氬熀纭€ VQA銆倉 妯″瀷鍥炵瓟鐩存帴妫€绱㈠拰绠€鍗曟瘮杈冮棶棰樸€?
+    \item \textbf{闃舵 3锛氭帹鐞?VQA銆倉 妯″瀷閫氳繃 \crs{} 涓殑鏄惧紡涓棿璁＄畻澶勭悊澶氭鎺ㄧ悊銆?
+    \item \textbf{闃舵 4锛氳瑙夊垎鏋愩€倉 妯″瀷鎵ц缁撴瀯鎬ф鏌ワ紝渚嬪鍏冪礌璁℃暟銆佸浘琛ㄥ垎绫诲拰甯冨眬鎰熺煡鍒嗘瀽銆?
+    \item \textbf{闃舵 5锛氫唬鐮佺敓鎴愩€倉 妯″瀷鐢熸垚鍙墽琛屼唬鐮侊紝鏍规嵁搴曞眰鏁版嵁鍜岃瑙夎鏍奸噸寤哄浘琛ㄣ€?
 \end{enumerate}
-这一顺序反映了教学上的依赖结构：后续任务建立在早期技能之上。
+杩欎竴椤哄簭鍙嶆槧浜嗘暀瀛︿笂鐨勪緷璧栫粨鏋勶細鍚庣画浠诲姟寤虹珛鍦ㄦ棭鏈熸妧鑳戒箣涓娿€?
 
-\paragraph{纵向维度：样本难度。}
-在每个阶段内部，样本按照五级难度从易到难排序：
+\paragraph{绾靛悜缁村害锛氭牱鏈毦搴︺€倉
+鍦ㄦ瘡涓樁娈靛唴閮紝鏍锋湰鎸夌収浜旂骇闅惧害浠庢槗鍒伴毦鎺掑簭锛?
 \begin{itemize}
-    \item \textbf{Level 1:} 从单个图表元素直接检索。
-    \item \textbf{Level 2:} 对直接读取的值进行一步算术。
-    \item \textbf{Level 3:} 涉及多个数值的多步计算。
-    \item \textbf{Level 4:} 结合多种模式的组合推理。
-    \item \textbf{Level 5:} 需要细致解释或领域知识的专家级问题。
+    \item \textbf{Level 1:} 浠庡崟涓浘琛ㄥ厓绱犵洿鎺ユ绱€?
+    \item \textbf{Level 2:} 瀵圭洿鎺ヨ鍙栫殑鍊艰繘琛屼竴姝ョ畻鏈€?
+    \item \textbf{Level 3:} 娑夊強澶氫釜鏁板€肩殑澶氭璁＄畻銆?
+    \item \textbf{Level 4:} 缁撳悎澶氱妯″紡鐨勭粍鍚堟帹鐞嗐€?
+    \item \textbf{Level 5:} 闇€瑕佺粏鑷磋В閲婃垨棰嗗煙鐭ヨ瘑鐨勪笓瀹剁骇闂銆?
 \end{itemize}
-这种由易到难的排序稳定了每个阶段内部的优化过程，并使课程真正成为二维课程，而不仅仅是阶段式训练。
+杩欑鐢辨槗鍒伴毦鐨勬帓搴忕ǔ瀹氫簡姣忎釜闃舵鍐呴儴鐨勪紭鍖栬繃绋嬶紝骞朵娇璇剧▼鐪熸鎴愪负浜岀淮璇剧▼锛岃€屼笉浠呬粎鏄樁娈靛紡璁粌銆?
 
-\subsection{代码即推理监督}
+\subsection{浠ｇ爜鍗虫帹鐞嗙洃鐫
 \label{sec:crs}
-对推理密集型图表问题而言，仅从答案监督中学习很困难，因为正确答案并不揭示计算路径。
-我们用 \textbf{代码即推理监督（\crs{}）} 解决这一问题。
-对于推理样本，模型被训练生成可执行 Python 轨迹，显式呈现数值抽取、中间变量和算术操作。
-例如，若问题要求计算两个季度收入之和，监督信号会先绑定两个数值，再计算它们的和。
+瀵规帹鐞嗗瘑闆嗗瀷鍥捐〃闂鑰岃█锛屼粎浠庣瓟妗堢洃鐫ｄ腑瀛︿範寰堝洶闅撅紝鍥犱负姝ｇ‘绛旀骞朵笉鎻ず璁＄畻璺緞銆?
+鎴戜滑鐢?\textbf{浠ｇ爜鍗虫帹鐞嗙洃鐫ｏ紙\crs{}锛墋 瑙ｅ喅杩欎竴闂銆?
+瀵逛簬鎺ㄧ悊鏍锋湰锛屾ā鍨嬭璁粌鐢熸垚鍙墽琛?Python 杞ㄨ抗锛屾樉寮忓憟鐜版暟鍊兼娊鍙栥€佷腑闂村彉閲忓拰绠楁湳鎿嶄綔銆?
+渚嬪锛岃嫢闂瑕佹眰璁＄畻涓や釜瀛ｅ害鏀跺叆涔嬪拰锛岀洃鐫ｄ俊鍙蜂細鍏堢粦瀹氫袱涓暟鍊硷紝鍐嶈绠楀畠浠殑鍜屻€?
 
-这种监督形式有三个优点。
-第一，它使推理信号显式化，而不是隐藏在最终答案中。
-第二，它可以通过程序验证：在数据构建过程中，不能复现期望答案的代码样本会被过滤。
-第三，它减少了虚假捷径学习，因为模型必须遵循结构化计算模板，而不是直接猜测一个看似合理的数字。
+杩欑鐩戠潱褰㈠紡鏈変笁涓紭鐐广€?
+绗竴锛屽畠浣挎帹鐞嗕俊鍙锋樉寮忓寲锛岃€屼笉鏄殣钘忓湪鏈€缁堢瓟妗堜腑銆?
+绗簩锛屽畠鍙互閫氳繃绋嬪簭楠岃瘉锛氬湪鏁版嵁鏋勫缓杩囩▼涓紝涓嶈兘澶嶇幇鏈熸湜绛旀鐨勪唬鐮佹牱鏈細琚繃婊ゃ€?
+绗笁锛屽畠鍑忓皯浜嗚櫄鍋囨嵎寰勫涔狅紝鍥犱负妯″瀷蹇呴』閬靛惊缁撴瀯鍖栬绠楁ā鏉匡紝鑰屼笉鏄洿鎺ョ寽娴嬩竴涓湅浼煎悎鐞嗙殑鏁板瓧銆?
 
-\paragraph{\crs{} 的推理方式。}
-在基准推理阶段，我们不在外部执行代码。
-相反，阶段 3 学到的推理模式通过适配器继承转移到下游专家，这些专家生成直接文本答案。
-这保留了代码监督的收益，同时不会引入对 Python 解释器的运行时依赖。
+\paragraph{\crs{} 鐨勬帹鐞嗘柟寮忋€倉
+鍦ㄥ熀鍑嗘帹鐞嗛樁娈碉紝鎴戜滑涓嶅湪澶栭儴鎵ц浠ｇ爜銆?
+鐩稿弽锛岄樁娈?3 瀛﹀埌鐨勬帹鐞嗘ā寮忛€氳繃閫傞厤鍣ㄧ户鎵胯浆绉诲埌涓嬫父涓撳锛岃繖浜涗笓瀹剁敓鎴愮洿鎺ユ枃鏈瓟妗堛€?
+杩欎繚鐣欎簡浠ｇ爜鐩戠潱鐨勬敹鐩婏紝鍚屾椂涓嶄細寮曞叆瀵?Python 瑙ｉ噴鍣ㄧ殑杩愯鏃朵緷璧栥€?
 
-\subsection{难度感知课程数据选择}
+\subsection{闅惧害鎰熺煡璇剧▼鏁版嵁閫夋嫨}
 \label{sec:dacds}
-大规模人工难度标注并不现实，因此我们使用 Qwen2.5-72B-Instruct 作为自动难度评分器。
-给定图表上下文、问题和答案，评分器根据预期推理步数、算术复杂度和知识需求，将样本分配到 1 到 5 的难度等级。
-随后，每个阶段的训练样本按照该分数升序排序。
+澶ц妯′汉宸ラ毦搴︽爣娉ㄥ苟涓嶇幇瀹烇紝鍥犳鎴戜滑浣跨敤 Qwen2.5-72B-Instruct 浣滀负鑷姩闅惧害璇勫垎鍣ㄣ€?
+缁欏畾鍥捐〃涓婁笅鏂囥€侀棶棰樺拰绛旀锛岃瘎鍒嗗櫒鏍规嵁棰勬湡鎺ㄧ悊姝ユ暟銆佺畻鏈鏉傚害鍜岀煡璇嗛渶姹傦紝灏嗘牱鏈垎閰嶅埌 1 鍒?5 鐨勯毦搴︾瓑绾с€?
+闅忓悗锛屾瘡涓樁娈电殑璁粌鏍锋湰鎸夌収璇ュ垎鏁板崌搴忔帓搴忋€?
 
-我们将这一过程称为 \textbf{难度感知课程数据选择（\dacds{}）}。
-横向课程决定下一步学习 \emph{哪种} 能力，而 \dacds{} 决定在该能力内部 \emph{如何} 排列样本。
+鎴戜滑灏嗚繖涓€杩囩▼绉颁负 \textbf{闅惧害鎰熺煡璇剧▼鏁版嵁閫夋嫨锛圽dacds{}锛墋銆?
+妯悜璇剧▼鍐冲畾涓嬩竴姝ュ涔?\emph{鍝} 鑳藉姏锛岃€?\dacds{} 鍐冲畾鍦ㄨ鑳藉姏鍐呴儴 \emph{濡備綍} 鎺掑垪鏍锋湰銆?
 
-\subsection{带适配器继承的渐进式微调}
+\subsection{甯﹂€傞厤鍣ㄧ户鎵跨殑娓愯繘寮忓井璋儅
 \label{sec:adapter}
-我们使用 LoRA 适配器实现课程~\cite{hu2022lora}。
-令 $\theta_0$ 表示冻结的预训练 VLM 参数，$\Delta\theta_s$ 表示阶段 $s$ 学到的 LoRA 参数。
-训练按顺序进行：
+鎴戜滑浣跨敤 LoRA 閫傞厤鍣ㄥ疄鐜拌绋媬\cite{hu2022lora}銆?
+浠?$\theta_0$ 琛ㄧず鍐荤粨鐨勯璁粌 VLM 鍙傛暟锛?\Delta\theta_s$ 琛ㄧず闃舵 $s$ 瀛﹀埌鐨?LoRA 鍙傛暟銆?
+璁粌鎸夐『搴忚繘琛岋細
 \begin{align}
     \Delta\theta_1 &= \text{Train}(\theta_0, \mathcal{D}_1), \\
     \Delta\theta_s &= \text{Train}(\theta_0 + \Delta\theta_{s-1}, \mathcal{D}_s), \quad s=2,\ldots,5,
 \end{align}
-其中 $\mathcal{D}_s$ 是阶段 $s$ 的难度排序数据。
-关键设计是 \emph{适配器继承}：每个阶段从上一阶段开始，而不是从基础模型重新开始。
-这鼓励知识从描述累积到抽取、从抽取累积到推理、再从推理累积到结构综合。
+鍏朵腑 $\mathcal{D}_s$ 鏄樁娈?$s$ 鐨勯毦搴︽帓搴忔暟鎹€?
+鍏抽敭璁捐鏄?\emph{閫傞厤鍣ㄧ户鎵縸锛氭瘡涓樁娈典粠涓婁竴闃舵寮€濮嬶紝鑰屼笉鏄粠鍩虹妯″瀷閲嶆柊寮€濮嬨€?
+杩欓紦鍔辩煡璇嗕粠鎻忚堪绱Н鍒版娊鍙栥€佷粠鎶藉彇绱Н鍒版帹鐞嗐€佸啀浠庢帹鐞嗙疮绉埌缁撴瀯缁煎悎銆?
 
-最终得到的是一组阶段专用专家。
-阶段 2 擅长简洁事实问答，阶段 3 擅长显式推理，阶段 4 更可靠地处理视觉密集问题，阶段 5 最擅长结构重建和代码综合。
-这些专家是一种优势，但也带来了部署挑战，这正是下一组件的动机。
+鏈€缁堝緱鍒扮殑鏄竴缁勯樁娈典笓鐢ㄤ笓瀹躲€?
+闃舵 2 鎿呴暱绠€娲佷簨瀹為棶绛旓紝闃舵 3 鎿呴暱鏄惧紡鎺ㄧ悊锛岄樁娈?4 鏇村彲闈犲湴澶勭悊瑙嗚瀵嗛泦闂锛岄樁娈?5 鏈€鎿呴暱缁撴瀯閲嶅缓鍜屼唬鐮佺患鍚堛€?
+杩欎簺涓撳鏄竴绉嶄紭鍔匡紝浣嗕篃甯︽潵浜嗛儴缃叉寫鎴橈紝杩欐鏄笅涓€缁勪欢鐨勫姩鏈恒€?
 
-\subsection{阶段感知路由器}
+\subsection{闃舵鎰熺煡璺敱鍣▆
 \label{sec:router}
-\method{} 学到的阶段专用适配器具有互补优势。
-我们不强迫用户手动选择适配器，而是学习一个轻量级 \textbf{阶段感知路由器（\sar{}）}，为每个输入问题选择最合适的专家。
+\method{} 瀛﹀埌鐨勯樁娈典笓鐢ㄩ€傞厤鍣ㄥ叿鏈変簰琛ヤ紭鍔裤€?
+鎴戜滑涓嶅己杩敤鎴锋墜鍔ㄩ€夋嫨閫傞厤鍣紝鑰屾槸瀛︿範涓€涓交閲忕骇 \textbf{闃舵鎰熺煡璺敱鍣紙\sar{}锛墋锛屼负姣忎釜杈撳叆闂閫夋嫨鏈€鍚堥€傜殑涓撳銆?
 
-给定图表--问题对 $(I,q)$，我们从冻结骨干中抽取池化多模态表示 $h(I,q)$，并输入两层分类器：
+缁欏畾鍥捐〃--闂瀵?$(I,q)$锛屾垜浠粠鍐荤粨楠ㄥ共涓娊鍙栨睜鍖栧妯℃€佽〃绀?$h(I,q)$锛屽苟杈撳叆涓ゅ眰鍒嗙被鍣細
 \begin{align}
     p(s \mid I,q) = \text{softmax}(W_2 \sigma(W_1 h(I,q))),
 \end{align}
-其中 $s \in \{2,3,4,5\}$ 表示可部署阶段专家，$\sigma$ 为 GELU。
-预测阶段为
+鍏朵腑 $s \in \{2,3,4,5\}$ 琛ㄧず鍙儴缃查樁娈典笓瀹讹紝$\sigma$ 涓?GELU銆?
+棰勬祴闃舵涓?
 \begin{align}
     \hat{s} = \arg\max_s p(s \mid I,q).
 \end{align}
 
-\paragraph{Oracle 路由标签。}
-为训练 \sar{}，我们构建与课程训练数据不重叠的保留路由集 $\mathcal{R}$。
-对 $\mathcal{R}$ 中每个样本，我们评估所有可部署阶段适配器，并将 oracle 标签赋给能以最高归一化答案似然给出正确答案的阶段。
-若多个阶段都正确，则选择置信度最高的阶段；若全部错误，则根据精确匹配和归一化编辑距离准则，将标签赋给错误最小的阶段。
+\paragraph{Oracle 璺敱鏍囩銆倉
+涓鸿缁?\sar{}锛屾垜浠瀯寤轰笌璇剧▼璁粌鏁版嵁涓嶉噸鍙犵殑淇濈暀璺敱闆?$\mathcal{R}$銆?
+瀵?$\mathcal{R}$ 涓瘡涓牱鏈紝鎴戜滑璇勪及鎵€鏈夊彲閮ㄧ讲闃舵閫傞厤鍣紝骞跺皢 oracle 鏍囩璧嬬粰鑳戒互鏈€楂樺綊涓€鍖栫瓟妗堜技鐒剁粰鍑烘纭瓟妗堢殑闃舵銆?
+鑻ュ涓樁娈甸兘姝ｇ‘锛屽垯閫夋嫨缃俊搴︽渶楂樼殑闃舵锛涜嫢鍏ㄩ儴閿欒锛屽垯鏍规嵁绮剧‘鍖归厤鍜屽綊涓€鍖栫紪杈戣窛绂诲噯鍒欙紝灏嗘爣绛捐祴缁欓敊璇渶灏忕殑闃舵銆?
 
-\paragraph{路由为何有效。}
-课程训练自然产生专家，而不是单一均匀模型。
-基于路由的分发将这种专长转化为运行优势。
-直接查值问题通常由阶段 2 回答最好，算术密集问题由阶段 3 更适合，视觉拥挤问题由阶段 4 更可靠，重建类问题则更适合阶段 5。
-实验表明，\sar{} 能恢复 oracle 路由的大部分收益，同时只增加很小延迟。
+\paragraph{璺敱涓轰綍鏈夋晥銆倉
+璇剧▼璁粌鑷劧浜х敓涓撳锛岃€屼笉鏄崟涓€鍧囧寑妯″瀷銆?
+鍩轰簬璺敱鐨勫垎鍙戝皢杩欑涓撻暱杞寲涓鸿繍琛屼紭鍔裤€?
+鐩存帴鏌ュ€奸棶棰橀€氬父鐢遍樁娈?2 鍥炵瓟鏈€濂斤紝绠楁湳瀵嗛泦闂鐢遍樁娈?3 鏇撮€傚悎锛岃瑙夋嫢鎸ら棶棰樼敱闃舵 4 鏇村彲闈狅紝閲嶅缓绫婚棶棰樺垯鏇撮€傚悎闃舵 5銆?
+瀹為獙琛ㄦ槑锛孿sar{} 鑳芥仮澶?oracle 璺敱鐨勫ぇ閮ㄥ垎鏀剁泭锛屽悓鏃跺彧澧炲姞寰堝皬寤惰繜銆?
 
 \begin{figure}[!t]
     \centering
-    \includegraphics[width=\columnwidth]{figures/fig9_2d_curriculum_heatmap.png}
-    \caption{不同任务类型和难度等级上的性能热图。简单任务准确率最高，并随着任务变为困难组合问题而逐步下降，验证了二维课程假设的学习轨迹。}
+    \includegraphics[width=\columnwidth]{figs/fig9_2d_curriculum_heatmap.png}
+    \caption{涓嶅悓浠诲姟绫诲瀷鍜岄毦搴︾瓑绾т笂鐨勬€ц兘鐑浘銆傜畝鍗曚换鍔″噯纭巼鏈€楂橈紝骞堕殢鐫€浠诲姟鍙樹负鍥伴毦缁勫悎闂鑰岄€愭涓嬮檷锛岄獙璇佷簡浜岀淮璇剧▼鍋囪鐨勫涔犺建杩广€倉
     \label{fig:heatmap}
 \end{figure}
 
-图~\ref{fig:heatmap} 可视化了最终性能分布。
-从简单/容易到复杂/困难的明显对角下降，支持了任务复杂度和样本难度都是组织图表学习的有意义维度这一前提。
+鍥緙\ref{fig:heatmap} 鍙鍖栦簡鏈€缁堟€ц兘鍒嗗竷銆?
+浠庣畝鍗?瀹规槗鍒板鏉?鍥伴毦鐨勬槑鏄惧瑙掍笅闄嶏紝鏀寔浜嗕换鍔″鏉傚害鍜屾牱鏈毦搴﹂兘鏄粍缁囧浘琛ㄥ涔犵殑鏈夋剰涔夌淮搴﹁繖涓€鍓嶆彁銆?
 
-\section{实验}
-\subsection{实验设置}
+\section{瀹為獙}
+\subsection{瀹為獙璁剧疆}
 \label{sec:setup}
-\paragraph{训练数据。}
-我们使用 Python matplotlib 生成 1,973 张合成图表，覆盖 10 个场景和 5 种图表类型：柱状图、折线图、饼图、散点图和面积图。
-对于每张图，Qwen2.5-72B-Instruct 生成阶段专用标注，包括描述、事实问答对、推理问答对、视觉分析提示和代码生成目标。
-\crs{} 使用的推理轨迹会被执行并按正确性过滤。
-最终训练集包含 12,427 个样本：阶段 1、2、3、5 各 1,775 个样本，阶段 4 包含 5,327 个样本。
-我们额外保留 1,200 个 QA 样本，用于训练和验证路由器。
+\paragraph{璁粌鏁版嵁銆倉
+鎴戜滑浣跨敤 Python matplotlib 鐢熸垚 1,973 寮犲悎鎴愬浘琛紝瑕嗙洊 10 涓満鏅拰 5 绉嶅浘琛ㄧ被鍨嬶細鏌辩姸鍥俱€佹姌绾垮浘銆侀ゼ鍥俱€佹暎鐐瑰浘鍜岄潰绉浘銆?
+瀵逛簬姣忓紶鍥撅紝Qwen2.5-72B-Instruct 鐢熸垚闃舵涓撶敤鏍囨敞锛屽寘鎷弿杩般€佷簨瀹為棶绛斿銆佹帹鐞嗛棶绛斿銆佽瑙夊垎鏋愭彁绀哄拰浠ｇ爜鐢熸垚鐩爣銆?
+\crs{} 浣跨敤鐨勬帹鐞嗚建杩逛細琚墽琛屽苟鎸夋纭€ц繃婊ゃ€?
+鏈€缁堣缁冮泦鍖呭惈 12,427 涓牱鏈細闃舵 1銆?銆?銆? 鍚?1,775 涓牱鏈紝闃舵 4 鍖呭惈 5,327 涓牱鏈€?
+鎴戜滑棰濆淇濈暀 1,200 涓?QA 鏍锋湰锛岀敤浜庤缁冨拰楠岃瘉璺敱鍣ㄣ€?
 
-\paragraph{基础模型。}
-主实验使用 Qwen2.5-VL-7B-Instruct~\cite{bai2023qwen}。
-为测试架构鲁棒性，我们也将方法应用于 Qwen2.5-VL-3B-Instruct 和 InternVL2-8B~\cite{chen2024internvl}。
+\paragraph{鍩虹妯″瀷銆倉
+涓诲疄楠屼娇鐢?Qwen2.5-VL-7B-Instruct~\cite{bai2023qwen}銆?
+涓烘祴璇曟灦鏋勯瞾妫掓€э紝鎴戜滑涔熷皢鏂规硶搴旂敤浜?Qwen2.5-VL-3B-Instruct 鍜?InternVL2-8B~\cite{chen2024internvl}銆?
 
-\paragraph{训练配置。}
-所有模型均使用 LoRA~\cite{hu2022lora}，rank 为 8，$\alpha=16$，dropout 为 0.1，有效 batch size 为 16。
-阶段 1 到阶段 5 的学习率分别为 $1\times10^{-4}$、$5\times10^{-5}$、$3\times10^{-5}$、$3\times10^{-5}$ 和 $2\times10^{-5}$。
-每个阶段训练 10 个 epoch。
-\sar{} 分类器是一个两层 MLP，在冻结多模态嵌入上训练 5 个 epoch，学习率为 $1\times10^{-4}$。
-除非另有说明，所有结果均为三个随机种子的平均值。
+\paragraph{璁粌閰嶇疆銆倉
+鎵€鏈夋ā鍨嬪潎浣跨敤 LoRA~\cite{hu2022lora}锛宺ank 涓?8锛?\alpha=16$锛宒ropout 涓?0.1锛屾湁鏁?batch size 涓?16銆?
+闃舵 1 鍒伴樁娈?5 鐨勫涔犵巼鍒嗗埆涓?$1\times10^{-4}$銆?5\times10^{-5}$銆?3\times10^{-5}$銆?3\times10^{-5}$ 鍜?$2\times10^{-5}$銆?
+姣忎釜闃舵璁粌 10 涓?epoch銆?
+\sar{} 鍒嗙被鍣ㄦ槸涓€涓袱灞?MLP锛屽湪鍐荤粨澶氭ā鎬佸祵鍏ヤ笂璁粌 5 涓?epoch锛屽涔犵巼涓?$1\times10^{-4}$銆?
+闄ら潪鍙︽湁璇存槑锛屾墍鏈夌粨鏋滃潎涓轰笁涓殢鏈虹瀛愮殑骞冲潎鍊笺€?
 
-\paragraph{评测基准。}
-我们以 ChartQA~\cite{masry2022chartqa} 为主要基准。
-进一步测试到 PlotQA~\cite{methani2020plotqa} 和 FigureQA~\cite{kahou2017figureqa} 的零样本迁移，并在 ChartBench 和 OpenCQA 两个额外基准上评估更广泛的泛化能力。
-对于鲁棒性分析，我们构造带 JPEG 压缩、高斯模糊、下采样、颜色扰动和局部遮挡的 ChartQA 退化版本。
+\paragraph{璇勬祴鍩哄噯銆倉
+鎴戜滑浠?ChartQA~\cite{masry2022chartqa} 涓轰富瑕佸熀鍑嗐€?
+杩涗竴姝ユ祴璇曞埌 PlotQA~\cite{methani2020plotqa} 鍜?FigureQA~\cite{kahou2017figureqa} 鐨勯浂鏍锋湰杩佺Щ锛屽苟鍦?ChartBench 鍜?OpenCQA 涓や釜棰濆鍩哄噯涓婅瘎浼版洿骞挎硾鐨勬硾鍖栬兘鍔涖€?
+瀵逛簬椴佹鎬у垎鏋愶紝鎴戜滑鏋勯€犲甫 JPEG 鍘嬬缉銆侀珮鏂ā绯娿€佷笅閲囨牱銆侀鑹叉壈鍔ㄥ拰灞€閮ㄩ伄鎸＄殑 ChartQA 閫€鍖栫増鏈€?
 
-\paragraph{基线。}
-我们比较冻结零样本基础模型、在相同 12K 样本上的标准 LoRA SFT、两个一维课程（仅任务和仅难度）、\method{} 中的最佳单阶段适配器、oracle 路由以及本文提出的预测路由器。
+\paragraph{鍩虹嚎銆倉
+鎴戜滑姣旇緝鍐荤粨闆舵牱鏈熀纭€妯″瀷銆佸湪鐩稿悓 12K 鏍锋湰涓婄殑鏍囧噯 LoRA SFT銆佷袱涓竴缁磋绋嬶紙浠呬换鍔″拰浠呴毦搴︼級銆乗method{} 涓殑鏈€浣冲崟闃舵閫傞厤鍣ㄣ€乷racle 璺敱浠ュ強鏈枃鎻愬嚭鐨勯娴嬭矾鐢卞櫒銆?
 
-\subsection{主结果}
+\subsection{涓荤粨鏋渳
 \label{sec:main_results}
 % TODO-EXP-04: Replace Table~\ref{tab:sota} with real main-results numbers.
 \begin{table}[!t]
@@ -275,18 +275,18 @@ PAL 和 Program-of-Thoughts 等程序辅助方法通过生成代码外化计算~
 \small
 \begin{tabular}{lccc}
 \toprule
-\textbf{方法} & \textbf{参数量} & \textbf{训练数据} & \textbf{ChartQA} \\
+\textbf{鏂规硶} & \textbf{鍙傛暟閲弣 & \textbf{璁粌鏁版嵁} & \textbf{ChartQA} \\
 \midrule
-\multicolumn{4}{l}{\textit{闭源模型}} \\
+\multicolumn{4}{l}{\textit{闂簮妯″瀷}} \\
 Claude 3.5 Sonnet & --- & --- & 90.8 \\
 GPT-4V & --- & --- & 85.7 \\
 \midrule
-\multicolumn{4}{l}{\textit{开源 VLM（zero-shot）}} \\
+\multicolumn{4}{l}{\textit{寮€婧?VLM锛坺ero-shot锛墋} \\
 Qwen2.5-VL-72B & 72B & --- & 89.5 \\
 InternVL2-Pro & 40B & --- & 83.8 \\
 LLaVA-1.6-34B & 34B & --- & 68.3 \\
 \midrule
-\multicolumn{4}{l}{\textit{图表专用模型}} \\
+\multicolumn{4}{l}{\textit{鍥捐〃涓撶敤妯″瀷}} \\
 ChartLlama & 13B & 160K & 69.4 \\
 MatCha & 282M & $\sim$2M & 64.2 \\
 UniChart & 140M & 611K & 60.8 \\
@@ -298,14 +298,14 @@ Standard LoRA SFT & 7B & 12K & 76.01 \\
 \textbf{Ours (\method{}+\sar{})} & \textbf{7B} & \textbf{12K} & \textbf{83.41} \\
 \bottomrule
 \end{tabular}
-\caption{ChartQA 上的比较。完整系统仅使用 12K 合成图表样本，就比标准 LoRA SFT 高 7.40 个百分点。}
+\caption{ChartQA 涓婄殑姣旇緝銆傚畬鏁寸郴缁熶粎浣跨敤 12K 鍚堟垚鍥捐〃鏍锋湰锛屽氨姣旀爣鍑?LoRA SFT 楂?7.40 涓櫨鍒嗙偣銆倉
 \label{tab:sota}
 \end{table}
 
 % TODO-EXP-05: Replace the main-results narrative numbers in this paragraph.
-表~\ref{tab:sota} 表明，所提出方法具有很高的数据效率。
-仅使用 12K 合成样本时，\method{}+\sar{} 就超过了使用更大规模图表语料训练的图表专用系统，并比标准 LoRA SFT 高 7.40 个百分点。
-相比冻结的零样本 Qwen2.5-VL-7B 基线，课程学习加路由带来 3.13 个百分点提升，说明即使基础模型已经很强，结构化适配仍然有价值。
+琛▇\ref{tab:sota} 琛ㄦ槑锛屾墍鎻愬嚭鏂规硶鍏锋湁寰堥珮鐨勬暟鎹晥鐜囥€?
+浠呬娇鐢?12K 鍚堟垚鏍锋湰鏃讹紝\method{}+\sar{} 灏辫秴杩囦簡浣跨敤鏇村ぇ瑙勬ā鍥捐〃璇枡璁粌鐨勫浘琛ㄤ笓鐢ㄧ郴缁燂紝骞舵瘮鏍囧噯 LoRA SFT 楂?7.40 涓櫨鍒嗙偣銆?
+鐩告瘮鍐荤粨鐨勯浂鏍锋湰 Qwen2.5-VL-7B 鍩虹嚎锛岃绋嬪涔犲姞璺敱甯︽潵 3.13 涓櫨鍒嗙偣鎻愬崌锛岃鏄庡嵆浣垮熀纭€妯″瀷宸茬粡寰堝己锛岀粨鏋勫寲閫傞厤浠嶇劧鏈変环鍊笺€?
 
 % TODO-EXP-06: Replace Table~\ref{tab:transfer} with real cross-dataset results.
 \begin{table}[!t]
@@ -313,7 +313,7 @@ Standard LoRA SFT & 7B & 12K & 76.01 \\
 \small
 \begin{tabular}{lcccc}
 \toprule
-\textbf{数据集} & \textbf{Std. SFT} & \textbf{最佳阶段} & \textbf{\method{}+\sar{}} & \textbf{$\Delta$} \\
+\textbf{鏁版嵁闆唥 & \textbf{Std. SFT} & \textbf{鏈€浣抽樁娈祡 & \textbf{\method{}+\sar{}} & \textbf{$\Delta$} \\
 \midrule
 ChartQA & 76.01 & 82.12 & 83.41 & +7.40 \\
 PlotQA & 52.40 & 56.71 & 58.20 & +5.80 \\
@@ -322,16 +322,16 @@ ChartBench & 68.10 & 72.82 & 74.60 & +6.50 \\
 OpenCQA & 62.70 & 67.38 & 69.30 & +6.60 \\
 \bottomrule
 \end{tabular}
-\caption{跨数据集评测。所提出系统在所有基准上均稳定优于标准 SFT，同时也超过人工选择的最佳单阶段适配器。}
+\caption{璺ㄦ暟鎹泦璇勬祴銆傛墍鎻愬嚭绯荤粺鍦ㄦ墍鏈夊熀鍑嗕笂鍧囩ǔ瀹氫紭浜庢爣鍑?SFT锛屽悓鏃朵篃瓒呰繃浜哄伐閫夋嫨鐨勬渶浣冲崟闃舵閫傞厤鍣ㄣ€倉
 \label{tab:transfer}
 \end{table}
 
 % TODO-EXP-07: Replace the cross-dataset interpretation after real results are available.
-表~\ref{tab:transfer} 将评测扩展到 ChartQA 之外。
-增益在科学图表（PlotQA）、合成二值图表问答（FigureQA）以及两个更广泛的图表推理基准（ChartBench 和 OpenCQA）上持续存在。
-这种一致性表明，课程并非仅仅优化某个数据集的答案格式，而是在学习可迁移能力。
+琛▇\ref{tab:transfer} 灏嗚瘎娴嬫墿灞曞埌 ChartQA 涔嬪銆?
+澧炵泭鍦ㄧ瀛﹀浘琛紙PlotQA锛夈€佸悎鎴愪簩鍊煎浘琛ㄩ棶绛旓紙FigureQA锛変互鍙婁袱涓洿骞挎硾鐨勫浘琛ㄦ帹鐞嗗熀鍑嗭紙ChartBench 鍜?OpenCQA锛変笂鎸佺画瀛樺湪銆?
+杩欑涓€鑷存€ц〃鏄庯紝璇剧▼骞堕潪浠呬粎浼樺寲鏌愪釜鏁版嵁闆嗙殑绛旀鏍煎紡锛岃€屾槸鍦ㄥ涔犲彲杩佺Щ鑳藉姏銆?
 
-\subsection{消融实验}
+\subsection{娑堣瀺瀹為獙}
 \label{sec:ablation}
 % TODO-EXP-08: Replace Table~\ref{tab:ablation} with real ablation results.
 \begin{table}[!t]
@@ -339,7 +339,7 @@ OpenCQA & 62.70 & 67.38 & 69.30 & +6.60 \\
 \small
 \begin{tabular}{lcccccc}
 \toprule
-\textbf{配置} & \textbf{阶段} & \textbf{难度} & \textbf{CRS} & \textbf{继承} & \textbf{路由} & \textbf{Acc.} \\
+\textbf{閰嶇疆} & \textbf{闃舵} & \textbf{闅惧害} & \textbf{CRS} & \textbf{缁ф壙} & \textbf{璺敱} & \textbf{Acc.} \\
 \midrule
 Full \method{}+\sar{} & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & 83.41 \\
 \midrule
@@ -352,36 +352,36 @@ w/o Inheritance & \checkmark & \checkmark & \checkmark & --- & --- & 77.86 \\
 Standard LoRA SFT & --- & --- & --- & --- & --- & 76.01 \\
 \bottomrule
 \end{tabular}
-\caption{ChartQA 上的消融实验。每个组件都有正向贡献，其中适配器继承和任务阶段化带来最大收益；\sar{} 相比最佳单阶段适配器进一步提升 1.29 个百分点。}
+\caption{ChartQA 涓婄殑娑堣瀺瀹為獙銆傛瘡涓粍浠堕兘鏈夋鍚戣础鐚紝鍏朵腑閫傞厤鍣ㄧ户鎵垮拰浠诲姟闃舵鍖栧甫鏉ユ渶澶ф敹鐩婏紱\sar{} 鐩告瘮鏈€浣冲崟闃舵閫傞厤鍣ㄨ繘涓€姝ユ彁鍗?1.29 涓櫨鍒嗙偣銆倉
 \label{tab:ablation}
 \end{table}
 
 % TODO-EXP-09: Replace ablation gains and component-importance statements with real values.
-表~\ref{tab:ablation} 中的消融结果强化了三个结论。
-第一，适配器继承仍然是最重要的训练组件：移除它会损失 5.55 个百分点。
-第二，任务阶段化与阶段内难度排序都很重要，说明课程确实是二维的。
-第三，\sar{} 在训练完成后额外带来 1.29 个百分点收益，表明只有将阶段专长转化为推理策略时，它才真正有用。
+琛▇\ref{tab:ablation} 涓殑娑堣瀺缁撴灉寮哄寲浜嗕笁涓粨璁恒€?
+绗竴锛岄€傞厤鍣ㄧ户鎵夸粛鐒舵槸鏈€閲嶈鐨勮缁冪粍浠讹細绉婚櫎瀹冧細鎹熷け 5.55 涓櫨鍒嗙偣銆?
+绗簩锛屼换鍔￠樁娈靛寲涓庨樁娈靛唴闅惧害鎺掑簭閮藉緢閲嶈锛岃鏄庤绋嬬‘瀹炴槸浜岀淮鐨勩€?
+绗笁锛孿sar{} 鍦ㄨ缁冨畬鎴愬悗棰濆甯︽潵 1.29 涓櫨鍒嗙偣鏀剁泭锛岃〃鏄庡彧鏈夊皢闃舵涓撻暱杞寲涓烘帹鐞嗙瓥鐣ユ椂锛屽畠鎵嶇湡姝ｆ湁鐢ㄣ€?
 
-\paragraph{与一维课程的比较。}
-\emph{w/o Difficulty} 行对应仅任务课程，而 \emph{w/o Staging} 对应仅难度课程。
+\paragraph{涓庝竴缁磋绋嬬殑姣旇緝銆倉
+\emph{w/o Difficulty} 琛屽搴斾粎浠诲姟璇剧▼锛岃€?\emph{w/o Staging} 瀵瑰簲浠呴毦搴﹁绋嬨€?
 % TODO-EXP-10: Replace the 1D-vs-2D comparison chain with real final values.
-完整递进关系为：
+瀹屾暣閫掕繘鍏崇郴涓猴細
 \begin{align*}
 \text{2D-CL+SAR } (83.41) &> \text{ 2D-CL } (82.12) \\
 &> \text{ 1D-Task } (81.27) \\
 &> \text{ 1D-Difficulty } (79.18) \\
 &> \text{ SFT } (76.01).
 \end{align*}
-任务分解比单纯难度排序带来更大收益，但完整二维课程产生最佳单阶段专家，而路由进一步将其转化为最佳整体系统。
+浠诲姟鍒嗚В姣斿崟绾毦搴︽帓搴忓甫鏉ユ洿澶ф敹鐩婏紝浣嗗畬鏁翠簩缁磋绋嬩骇鐢熸渶浣冲崟闃舵涓撳锛岃€岃矾鐢辫繘涓€姝ュ皢鍏惰浆鍖栦负鏈€浣虫暣浣撶郴缁熴€?
 
-\subsection{多随机种子与跨模型结果}
+\subsection{澶氶殢鏈虹瀛愪笌璺ㄦā鍨嬬粨鏋渳
 % TODO-EXP-11: Replace Table~\ref{tab:seeds} with real multi-seed statistics.
 \begin{table}[!t]
 \centering
 \small
 \begin{tabular}{lc}
 \toprule
-\textbf{方法} & \textbf{ChartQA（均值 $\pm$ 标准差）} \\
+\textbf{鏂规硶} & \textbf{ChartQA锛堝潎鍊?$\pm$ 鏍囧噯宸級} \\
 \midrule
 Standard LoRA SFT & 76.01 $\pm$ 0.31 \\
 1D-Difficulty & 79.18 $\pm$ 0.28 \\
@@ -390,25 +390,25 @@ Standard LoRA SFT & 76.01 $\pm$ 0.31 \\
 \method{}+\sar{} & 83.41 $\pm$ 0.18 \\
 \bottomrule
 \end{tabular}
-\caption{ChartQA 上的三随机种子评测。\method{}+\sar{} 相比标准 SFT 的提升稳定存在，且随着课程结构增强，方差逐步减小。}
+\caption{ChartQA 涓婄殑涓夐殢鏈虹瀛愯瘎娴嬨€俓method{}+\sar{} 鐩告瘮鏍囧噯 SFT 鐨勬彁鍗囩ǔ瀹氬瓨鍦紝涓旈殢鐫€璇剧▼缁撴瀯澧炲己锛屾柟宸€愭鍑忓皬銆倉
 \label{tab:seeds}
 \end{table}
 
 \begin{figure*}[!t]
     \centering
-    \subfloat[消融实验]{\includegraphics[width=0.32\textwidth]{figures/fig3_ablation_study.png}\label{fig:exp_ablation}}
+    \subfloat[娑堣瀺瀹為獙]{\includegraphics[width=0.32\textwidth]{figs/fig3_ablation_study.png}\label{fig:exp_ablation}}
     \hfil
-    \subfloat[跨模型泛化]{\includegraphics[width=0.32\textwidth]{figures/fig5_multi_model_comparison.png}\label{fig:exp_models}}
+    \subfloat[璺ㄦā鍨嬫硾鍖朷{\includegraphics[width=0.32\textwidth]{figs/fig5_multi_model_comparison.png}\label{fig:exp_models}}
     \hfil
-    \subfloat[跨数据集迁移]{\includegraphics[width=0.32\textwidth]{figures/fig6_cross_dataset_evaluation.png}\label{fig:exp_transfer}}
-    \caption{实验依据概览。引入 \sar{} 后，相同定性趋势仍然保持：每个课程组件都有作用，增益可迁移到不同骨干模型，并能泛化到 ChartQA 之外。}
+    \subfloat[璺ㄦ暟鎹泦杩佺Щ]{\includegraphics[width=0.32\textwidth]{figs/fig6_cross_dataset_evaluation.png}\label{fig:exp_transfer}}
+    \caption{瀹為獙渚濇嵁姒傝銆傚紩鍏?\sar{} 鍚庯紝鐩稿悓瀹氭€ц秼鍔夸粛鐒朵繚鎸侊細姣忎釜璇剧▼缁勪欢閮芥湁浣滅敤锛屽鐩婂彲杩佺Щ鍒颁笉鍚岄骞叉ā鍨嬶紝骞惰兘娉涘寲鍒?ChartQA 涔嬪銆倉
     \label{fig:main_experiments}
 \end{figure*}
 
 % TODO-EXP-12: Replace the multi-seed interpretation (mean/std improvements) with real values.
-表~\ref{tab:seeds} 表明，这些增益在不同随机种子下稳定存在。
-完整系统比标准 SFT 高 7.40 个百分点，标准差仅为 0.18。
-更小的方差说明课程结构不仅提升最终准确率，也在一定程度上正则化了优化过程。
+琛▇\ref{tab:seeds} 琛ㄦ槑锛岃繖浜涘鐩婂湪涓嶅悓闅忔満绉嶅瓙涓嬬ǔ瀹氬瓨鍦ㄣ€?
+瀹屾暣绯荤粺姣旀爣鍑?SFT 楂?7.40 涓櫨鍒嗙偣锛屾爣鍑嗗樊浠呬负 0.18銆?
+鏇村皬鐨勬柟宸鏄庤绋嬬粨鏋勪笉浠呮彁鍗囨渶缁堝噯纭巼锛屼篃鍦ㄤ竴瀹氱▼搴︿笂姝ｅ垯鍖栦簡浼樺寲杩囩▼銆?
 
 % TODO-EXP-13: Replace Table~\ref{tab:models} with real cross-model results.
 \begin{table}[!t]
@@ -416,29 +416,29 @@ Standard LoRA SFT & 76.01 $\pm$ 0.31 \\
 \small
 \begin{tabular}{lccc}
 \toprule
-\textbf{模型} & \textbf{Std. SFT} & \textbf{\method{}+\sar{}} & \textbf{$\Delta$} \\
+\textbf{妯″瀷} & \textbf{Std. SFT} & \textbf{\method{}+\sar{}} & \textbf{$\Delta$} \\
 \midrule
 Qwen2.5-VL-7B & 76.01 & 83.41 & +7.40 \\
 Qwen2.5-VL-3B & 72.41 & 77.58 & +5.17 \\
 InternVL2-8B & 77.36 & 81.94 & +4.58 \\
 \bottomrule
 \end{tabular}
-\caption{ChartQA 上的跨模型评测。所提出框架同时提升了更小模型和架构不同的骨干模型。}
+\caption{ChartQA 涓婄殑璺ㄦā鍨嬭瘎娴嬨€傛墍鎻愬嚭妗嗘灦鍚屾椂鎻愬崌浜嗘洿灏忔ā鍨嬪拰鏋舵瀯涓嶅悓鐨勯骞叉ā鍨嬨€倉
 \label{tab:models}
 \end{table}
 
 % TODO-EXP-14: Replace the cross-model narrative after real model-transfer experiments are done.
-表~\ref{tab:models} 说明 \method{}+\sar{} 的收益并不依赖单一模型家族。
-三个骨干模型均有提升，其中 Qwen2.5-VL-7B 的绝对提升最大，而较小的 Qwen2.5-VL-3B 和架构不同的 InternVL2-8B 也保留了有意义的增益。
+琛▇\ref{tab:models} 璇存槑 \method{}+\sar{} 鐨勬敹鐩婂苟涓嶄緷璧栧崟涓€妯″瀷瀹舵棌銆?
+涓変釜楠ㄥ共妯″瀷鍧囨湁鎻愬崌锛屽叾涓?Qwen2.5-VL-7B 鐨勭粷瀵规彁鍗囨渶澶э紝鑰岃緝灏忕殑 Qwen2.5-VL-3B 鍜屾灦鏋勪笉鍚岀殑 InternVL2-8B 涔熶繚鐣欎簡鏈夋剰涔夌殑澧炵泭銆?
 
-\subsection{路由分析}
+\subsection{璺敱鍒嗘瀽}
 % TODO-EXP-15: Replace Table~\ref{tab:routing} with real routing results.
 \begin{table}[!t]
 \centering
 \small
 \begin{tabular}{lcccc}
 \toprule
-\textbf{推理策略} & \textbf{ChartQA} & \textbf{ChartBench} & \textbf{OpenCQA} & \textbf{平均} \\
+\textbf{鎺ㄧ悊绛栫暐} & \textbf{ChartQA} & \textbf{ChartBench} & \textbf{OpenCQA} & \textbf{骞冲潎} \\
 \midrule
 Stage 2 only & 81.74 & 70.31 & 64.90 & 72.32 \\
 Stage 3 only & 80.68 & 71.24 & 66.11 & 72.68 \\
@@ -448,24 +448,24 @@ Oracle routing & 84.06 & 75.51 & 70.82 & 76.80 \\
 \textbf{Predicted routing (\sar{})} & \textbf{83.41} & \textbf{74.60} & \textbf{69.30} & \textbf{75.77} \\
 \bottomrule
 \end{tabular}
-\caption{路由分析。\sar{} 恢复了大部分 oracle 路由收益，并在所有数据集上稳定优于任何固定单阶段适配器。}
+\caption{璺敱鍒嗘瀽銆俓sar{} 鎭㈠浜嗗ぇ閮ㄥ垎 oracle 璺敱鏀剁泭锛屽苟鍦ㄦ墍鏈夋暟鎹泦涓婄ǔ瀹氫紭浜庝换浣曞浐瀹氬崟闃舵閫傞厤鍣ㄣ€倉
 \label{tab:routing}
 \end{table}
 
 % TODO-EXP-16: Replace routing-gap, oracle-gap-closing, and routing-distribution claims with real values.
-表~\ref{tab:routing} 说明了路由的价值。
-没有单个阶段能在所有数据集上占优：阶段 4 是总体最强固定选择，但平均仍落后 oracle 路由 2.69 个百分点。
-预测路由器恢复了其中 1.66 个百分点，弥合了 61.7\% 的 oracle 差距，同时只使用轻量分类器。
-在 ChartQA 上，路由器分别为 29\%、25\%、38\% 和 8\% 的样本选择阶段 2、3、4 和 5，这与真实基准问题覆盖多种能力类型的直觉一致。
+琛▇\ref{tab:routing} 璇存槑浜嗚矾鐢辩殑浠峰€笺€?
+娌℃湁鍗曚釜闃舵鑳藉湪鎵€鏈夋暟鎹泦涓婂崰浼橈細闃舵 4 鏄€讳綋鏈€寮哄浐瀹氶€夋嫨锛屼絾骞冲潎浠嶈惤鍚?oracle 璺敱 2.69 涓櫨鍒嗙偣銆?
+棰勬祴璺敱鍣ㄦ仮澶嶄簡鍏朵腑 1.66 涓櫨鍒嗙偣锛屽讥鍚堜簡 61.7\% 鐨?oracle 宸窛锛屽悓鏃跺彧浣跨敤杞婚噺鍒嗙被鍣ㄣ€?
+鍦?ChartQA 涓婏紝璺敱鍣ㄥ垎鍒负 29\%銆?5\%銆?8\% 鍜?8\% 鐨勬牱鏈€夋嫨闃舵 2銆?銆? 鍜?5锛岃繖涓庣湡瀹炲熀鍑嗛棶棰樿鐩栧绉嶈兘鍔涚被鍨嬬殑鐩磋涓€鑷淬€?
 
-\subsection{数据效率}
+\subsection{鏁版嵁鏁堢巼}
 % TODO-EXP-17: Replace Table~\ref{tab:scaling} with real data-scaling results.
 \begin{table}[!t]
 \centering
 \small
 \begin{tabular}{lccc}
 \toprule
-\textbf{训练数据} & \textbf{Std. SFT} & \textbf{1D-Task} & \textbf{\method{}+\sar{}} \\
+\textbf{璁粌鏁版嵁} & \textbf{Std. SFT} & \textbf{1D-Task} & \textbf{\method{}+\sar{}} \\
 \midrule
 10\% & 61.80 & 66.42 & 69.73 \\
 25\% & 68.91 & 73.46 & 76.84 \\
@@ -474,23 +474,23 @@ Oracle routing & 84.06 & 75.51 & 70.82 & 76.80 \\
 150\% & 77.18 & 81.96 & 84.03 \\
 \bottomrule
 \end{tabular}
-\caption{ChartQA 上的数据规模实验。课程在低资源设置下尤其有优势，且随着数据规模增大，相对排序保持不变。}
+\caption{ChartQA 涓婄殑鏁版嵁瑙勬ā瀹為獙銆傝绋嬪湪浣庤祫婧愯缃笅灏ゅ叾鏈変紭鍔匡紝涓旈殢鐫€鏁版嵁瑙勬ā澧炲ぇ锛岀浉瀵规帓搴忎繚鎸佷笉鍙樸€倉
 \label{tab:scaling}
 \end{table}
 
 % TODO-EXP-18: Replace data-efficiency claims and low-resource gain numbers with real values.
-表~\ref{tab:scaling} 中的数据规模结果表明，数据稀缺时课程尤其有价值。
-仅使用 10\% 训练数据时，\method{}+\sar{} 已经比标准 SFT 高 7.93 个百分点。
-虽然所有方法都会随着数据增多而提升，但所提出框架在每个规模下都保持最佳，说明收益不是某个特定数据量下的偶然现象。
+琛▇\ref{tab:scaling} 涓殑鏁版嵁瑙勬ā缁撴灉琛ㄦ槑锛屾暟鎹█缂烘椂璇剧▼灏ゅ叾鏈変环鍊笺€?
+浠呬娇鐢?10\% 璁粌鏁版嵁鏃讹紝\method{}+\sar{} 宸茬粡姣旀爣鍑?SFT 楂?7.93 涓櫨鍒嗙偣銆?
+铏界劧鎵€鏈夋柟娉曢兘浼氶殢鐫€鏁版嵁澧炲鑰屾彁鍗囷紝浣嗘墍鎻愬嚭妗嗘灦鍦ㄦ瘡涓妯′笅閮戒繚鎸佹渶浣筹紝璇存槑鏀剁泭涓嶆槸鏌愪釜鐗瑰畾鏁版嵁閲忎笅鐨勫伓鐒剁幇璞°€?
 
-\subsection{鲁棒性与错误分析}
+\subsection{椴佹鎬т笌閿欒鍒嗘瀽}
 % TODO-EXP-19: Replace Table~\ref{tab:robustness} with real robustness results.
 \begin{table}[!t]
 \centering
 \small
 \begin{tabular}{lccc}
 \toprule
-\textbf{扰动} & \textbf{Std. SFT 下降} & \textbf{\method{} 下降} & \textbf{\method{}+\sar{} 下降} \\
+\textbf{鎵板姩} & \textbf{Std. SFT 涓嬮檷} & \textbf{\method{} 涓嬮檷} & \textbf{\method{}+\sar{} 涓嬮檷} \\
 \midrule
 JPEG compression & 6.8 & 4.9 & 4.3 \\
 Gaussian blur & 8.1 & 5.6 & 4.8 \\
@@ -501,7 +501,7 @@ Partial occlusion & 9.0 & 6.4 & 5.8 \\
 Average & 7.2 & 5.0 & 4.4 \\
 \bottomrule
 \end{tabular}
-\caption{ChartQA-C 图像扰动下的平均准确率下降。课程训练和路由都提升鲁棒性，完整系统相比标准 SFT 将平均退化减少 2.8 个百分点。}
+\caption{ChartQA-C 鍥惧儚鎵板姩涓嬬殑骞冲潎鍑嗙‘鐜囦笅闄嶃€傝绋嬭缁冨拰璺敱閮芥彁鍗囬瞾妫掓€э紝瀹屾暣绯荤粺鐩告瘮鏍囧噯 SFT 灏嗗钩鍧囬€€鍖栧噺灏?2.8 涓櫨鍒嗙偣銆倉
 \label{tab:robustness}
 \end{table}
 
@@ -511,7 +511,7 @@ Average & 7.2 & 5.0 & 4.4 \\
 \small
 \begin{tabular}{lcc}
 \toprule
-\textbf{错误类型} & \textbf{Std. SFT} & \textbf{\method{}+\sar{}} \\
+\textbf{閿欒绫诲瀷} & \textbf{Std. SFT} & \textbf{\method{}+\sar{}} \\
 \midrule
 Value extraction & 28.4 & 22.9 \\
 Arithmetic & 18.7 & 11.6 \\
@@ -521,20 +521,20 @@ Legend/axis mapping & 7.1 & 5.8 \\
 Counting/dense perception & 8.3 & 8.0 \\
 \bottomrule
 \end{tabular}
-\caption{对 300 个 ChartQA 失败案例人工检查得到的错误分布（\%）。最大降幅出现在推理和格式相关错误上，而密集计数仍然具有挑战性。}
+\caption{瀵?300 涓?ChartQA 澶辫触妗堜緥浜哄伐妫€鏌ュ緱鍒扮殑閿欒鍒嗗竷锛圽%锛夈€傛渶澶ч檷骞呭嚭鐜板湪鎺ㄧ悊鍜屾牸寮忕浉鍏抽敊璇笂锛岃€屽瘑闆嗚鏁颁粛鐒跺叿鏈夋寫鎴樻€с€倉
 \label{tab:error}
 \end{table}
 
 % TODO-EXP-21: Replace robustness/error-analysis narrative with real drops and observed trends.
-表~\ref{tab:robustness} 中的扰动结果表明，课程学习不仅提升干净数据上的准确率，也降低了视觉扰动下的性能退化。
-表~\ref{tab:error} 中的错误分类解释了原因。
-相比标准 SFT，所提出系统显著减少了算术、多步推理和答案格式错误，这些正是 \crs{}、阶段化和路由所针对的行为。
-相反，密集计数错误仍然困难，说明冻结视觉编码器在高度拥挤图表上仍然限制性能。
+琛▇\ref{tab:robustness} 涓殑鎵板姩缁撴灉琛ㄦ槑锛岃绋嬪涔犱笉浠呮彁鍗囧共鍑€鏁版嵁涓婄殑鍑嗙‘鐜囷紝涔熼檷浣庝簡瑙嗚鎵板姩涓嬬殑鎬ц兘閫€鍖栥€?
+琛▇\ref{tab:error} 涓殑閿欒鍒嗙被瑙ｉ噴浜嗗師鍥犮€?
+鐩告瘮鏍囧噯 SFT锛屾墍鎻愬嚭绯荤粺鏄捐憲鍑忓皯浜嗙畻鏈€佸姝ユ帹鐞嗗拰绛旀鏍煎紡閿欒锛岃繖浜涙鏄?\crs{}銆侀樁娈靛寲鍜岃矾鐢辨墍閽堝鐨勮涓恒€?
+鐩稿弽锛屽瘑闆嗚鏁伴敊璇粛鐒跺洶闅撅紝璇存槑鍐荤粨瑙嗚缂栫爜鍣ㄥ湪楂樺害鎷ユ尋鍥捐〃涓婁粛鐒堕檺鍒舵€ц兘銆?
 
-\section{分析}
-\subsection{阶段专长}
-\sar{} 背后的一个核心经验观察是，不同课程阶段会成为不同子技能的专家。
-表~\ref{tab:stage_performance} 报告了五类内部任务上的评测结果。
+\section{鍒嗘瀽}
+\subsection{闃舵涓撻暱}
+\sar{} 鑳屽悗鐨勪竴涓牳蹇冪粡楠岃瀵熸槸锛屼笉鍚岃绋嬮樁娈典細鎴愪负涓嶅悓瀛愭妧鑳界殑涓撳銆?
+琛▇\ref{tab:stage_performance} 鎶ュ憡浜嗕簲绫诲唴閮ㄤ换鍔′笂鐨勮瘎娴嬬粨鏋溿€?
 
 % TODO-EXP-22: Replace Table~\ref{tab:stage_performance} with real internal stage-specific evaluation results.
 \begin{table}[!t]
@@ -553,109 +553,109 @@ Stage 4 & 8.3 & 25.6 & 83.4 & \textbf{82.1} & 50.7 \\
 Stage 5 & 4.2 & 23.8 & 63.5 & 75.2 & \textbf{99.2} \\
 \bottomrule
 \end{tabular}
-\caption{阶段专家在内部任务上的表现。T1 为 BLEU，T2--T5 为准确率（\%）。每个阶段都在其设计强调的任务族上达到峰值。}
+\caption{闃舵涓撳鍦ㄥ唴閮ㄤ换鍔′笂鐨勮〃鐜般€俆1 涓?BLEU锛孴2--T5 涓哄噯纭巼锛圽%锛夈€傛瘡涓樁娈甸兘鍦ㄥ叾璁捐寮鸿皟鐨勪换鍔℃棌涓婅揪鍒板嘲鍊笺€倉
 \label{tab:stage_performance}
 \end{table}
 
 % TODO-EXP-23: Replace the stage-specialization interpretation after real internal evaluation is finalized.
-表~\ref{tab:stage_performance} 中的对角优势很明显。
-阶段 2 最适合简洁事实问答，阶段 3 最适合推理，阶段 4 最适合视觉分析，阶段 5 最适合代码重建。
-这正是 \sar{} 在推理时利用的结构。
-没有路由时，这些专家只是有用但不便使用的副产物；有了路由，它们成为更好系统的基础。
+琛▇\ref{tab:stage_performance} 涓殑瀵硅浼樺娍寰堟槑鏄俱€?
+闃舵 2 鏈€閫傚悎绠€娲佷簨瀹為棶绛旓紝闃舵 3 鏈€閫傚悎鎺ㄧ悊锛岄樁娈?4 鏈€閫傚悎瑙嗚鍒嗘瀽锛岄樁娈?5 鏈€閫傚悎浠ｇ爜閲嶅缓銆?
+杩欐鏄?\sar{} 鍦ㄦ帹鐞嗘椂鍒╃敤鐨勭粨鏋勩€?
+娌℃湁璺敱鏃讹紝杩欎簺涓撳鍙槸鏈夌敤浣嗕笉渚夸娇鐢ㄧ殑鍓骇鐗╋紱鏈変簡璺敱锛屽畠浠垚涓烘洿濂界郴缁熺殑鍩虹銆?
 
-\subsection{代码即推理监督的作用}
+\subsection{浠ｇ爜鍗虫帹鐞嗙洃鐫ｇ殑浣滅敤}
 \begin{figure}[!t]
     \centering
-    \includegraphics[width=\columnwidth]{figures/fig10_crs_effect.png}
-    \caption{\crs{} 对推理密集任务的影响。移除代码监督主要损害推理阶段，说明 \crs{} 针对的是特定能力缺口，而不是一般性的训练增益。}
+    \includegraphics[width=\columnwidth]{figs/fig10_crs_effect.png}
+    \caption{\crs{} 瀵规帹鐞嗗瘑闆嗕换鍔＄殑褰卞搷銆傜Щ闄や唬鐮佺洃鐫ｄ富瑕佹崯瀹虫帹鐞嗛樁娈碉紝璇存槑 \crs{} 閽堝鐨勬槸鐗瑰畾鑳藉姏缂哄彛锛岃€屼笉鏄竴鑸€х殑璁粌澧炵泭銆倉
     \label{fig:crs_effect}
 \end{figure}
 
 % TODO-EXP-24: Replace CRS-specific drop numbers and reasoning-benchmark claims with real values.
-图~\ref{fig:crs_effect} 隔离了 \crs{} 的作用。
-最大下降出现在推理密集问题上：移除 \crs{} 后，内部推理基准性能从 98.6\% 降至 74.3\%。
-这种不对称很重要：\crs{} 不只是增加输出长度或冗余性，而是在教授一种独特的计算行为，并将其转移到路由式 QA 系统中。
+鍥緙\ref{fig:crs_effect} 闅旂浜?\crs{} 鐨勪綔鐢ㄣ€?
+鏈€澶т笅闄嶅嚭鐜板湪鎺ㄧ悊瀵嗛泦闂涓婏細绉婚櫎 \crs{} 鍚庯紝鍐呴儴鎺ㄧ悊鍩哄噯鎬ц兘浠?98.6\% 闄嶈嚦 74.3\%銆?
+杩欑涓嶅绉板緢閲嶈锛歕crs{} 涓嶅彧鏄鍔犺緭鍑洪暱搴︽垨鍐椾綑鎬э紝鑰屾槸鍦ㄦ暀鎺堜竴绉嶇嫭鐗圭殑璁＄畻琛屼负锛屽苟灏嗗叾杞Щ鍒拌矾鐢卞紡 QA 绯荤粺涓€?
 
-\subsection{为什么适配器继承重要}
+\subsection{涓轰粈涔堥€傞厤鍣ㄧ户鎵块噸瑕亇
 % TODO-EXP-25: Recheck this subsection against the final ablation values after experiments finish.
-在我们的消融实验中，适配器继承贡献了最大增益。
-没有继承时，每个阶段实质上都是一次孤立的微调。
-这对阶段 3 尤其有害，因为它必须仅凭 1,775 个推理样本同时学习视觉定位和多步推理。
-有了继承，阶段 3 可以假设低层图表定位已经建立，从而把容量用于计算，而不是重新学习感知。
+鍦ㄦ垜浠殑娑堣瀺瀹為獙涓紝閫傞厤鍣ㄧ户鎵胯础鐚簡鏈€澶у鐩娿€?
+娌℃湁缁ф壙鏃讹紝姣忎釜闃舵瀹炶川涓婇兘鏄竴娆″绔嬬殑寰皟銆?
+杩欏闃舵 3 灏ゅ叾鏈夊锛屽洜涓哄畠蹇呴』浠呭嚟 1,775 涓帹鐞嗘牱鏈悓鏃跺涔犺瑙夊畾浣嶅拰澶氭鎺ㄧ悊銆?
+鏈変簡缁ф壙锛岄樁娈?3 鍙互鍋囪浣庡眰鍥捐〃瀹氫綅宸茬粡寤虹珛锛屼粠鑰屾妸瀹归噺鐢ㄤ簬璁＄畻锛岃€屼笉鏄噸鏂板涔犳劅鐭ャ€?
 
-\subsection{难度可靠性}
+\subsection{闅惧害鍙潬鎬
 % TODO-EXP-26: Replace difficulty-reliability statistics (agreement, deviation, ordering comparison) with real values.
-为验证 \dacds{}，我们人工标注 300 个样本的五级难度标签，并与基于 LLM 的分数比较。
-一致率为 82.7\%，平均绝对偏差为 0.41 个等级。
-更重要的是，排序本身确实有作用：在相同阶段结构下，由易到难排序稳定优于由难到易（80.34\%）和随机排序（81.27\%）。
-这确认了 \dacds{} 的收益来自有意义的样本排序，而不是评分过程中的噪声。
+涓洪獙璇?\dacds{}锛屾垜浠汉宸ユ爣娉?300 涓牱鏈殑浜旂骇闅惧害鏍囩锛屽苟涓庡熀浜?LLM 鐨勫垎鏁版瘮杈冦€?
+涓€鑷寸巼涓?82.7\%锛屽钩鍧囩粷瀵瑰亸宸负 0.41 涓瓑绾с€?
+鏇撮噸瑕佺殑鏄紝鎺掑簭鏈韩纭疄鏈変綔鐢細鍦ㄧ浉鍚岄樁娈电粨鏋勪笅锛岀敱鏄撳埌闅炬帓搴忕ǔ瀹氫紭浜庣敱闅惧埌鏄擄紙80.34\%锛夊拰闅忔満鎺掑簭锛?1.27\%锛夈€?
+杩欑‘璁や簡 \dacds{} 鐨勬敹鐩婃潵鑷湁鎰忎箟鐨勬牱鏈帓搴忥紝鑰屼笉鏄瘎鍒嗚繃绋嬩腑鐨勫櫔澹般€?
 
-\subsection{定性案例}
+\subsection{瀹氭€ф渚媫
 % TODO-EXP-27: Replace this qualitative summary with real selected cases after manual case curation.
-定性检查中反复出现两种模式。
-第一，路由系统经常修复标准 SFT 的答案格式错误：过去会触发冗长解释的问题被重定向到阶段 2，并以基准期望的简洁精确匹配格式回答。
-第二，算术密集问题经常被路由到阶段 3，模型给出简短但计算一致的答案，反映了通过 \crs{} 学到的推理习惯。
-与此同时，持续存在的错误集中在密集计数或很小的视觉标记上，突显了冻结视觉编码器的局限。
+瀹氭€ф鏌ヤ腑鍙嶅鍑虹幇涓ょ妯″紡銆?
+绗竴锛岃矾鐢辩郴缁熺粡甯镐慨澶嶆爣鍑?SFT 鐨勭瓟妗堟牸寮忛敊璇細杩囧幓浼氳Е鍙戝啑闀胯В閲婄殑闂琚噸瀹氬悜鍒伴樁娈?2锛屽苟浠ュ熀鍑嗘湡鏈涚殑绠€娲佺簿纭尮閰嶆牸寮忓洖绛斻€?
+绗簩锛岀畻鏈瘑闆嗛棶棰樼粡甯歌璺敱鍒伴樁娈?3锛屾ā鍨嬬粰鍑虹畝鐭絾璁＄畻涓€鑷寸殑绛旀锛屽弽鏄犱簡閫氳繃 \crs{} 瀛﹀埌鐨勬帹鐞嗕範鎯€?
+涓庢鍚屾椂锛屾寔缁瓨鍦ㄧ殑閿欒闆嗕腑鍦ㄥ瘑闆嗚鏁版垨寰堝皬鐨勮瑙夋爣璁颁笂锛岀獊鏄句簡鍐荤粨瑙嗚缂栫爜鍣ㄧ殑灞€闄愩€?
 
-\section{讨论}
+\section{璁ㄨ}
 % TODO-EXP-28: Recalibrate the discussion after all experimental evidence is finalized.
-完整结果支持的结论并不只是基准分数提升。
-对于图表理解而言，\emph{训练结构} 本身就是重要设计变量。
-所提出课程提升了优化稳定性、数据效率和迁移能力，而路由表明多阶段专长可以成为优势，而不是部署负担。
+瀹屾暣缁撴灉鏀寔鐨勭粨璁哄苟涓嶅彧鏄熀鍑嗗垎鏁版彁鍗囥€?
+瀵逛簬鍥捐〃鐞嗚В鑰岃█锛孿emph{璁粌缁撴瀯} 鏈韩灏辨槸閲嶈璁捐鍙橀噺銆?
+鎵€鎻愬嚭璇剧▼鎻愬崌浜嗕紭鍖栫ǔ瀹氭€с€佹暟鎹晥鐜囧拰杩佺Щ鑳藉姏锛岃€岃矾鐢辫〃鏄庡闃舵涓撻暱鍙互鎴愪负浼樺娍锛岃€屼笉鏄儴缃茶礋鎷呫€?
 
-这些增益也揭示了组件之间的分工。
-阶段化与继承逐步构建能力；\crs{} 强化显式计算；\dacds{} 平滑阶段内优化；\sar{} 则将专长转化为实际推理。
-这种分解有助于解释为什么完整框架同时优于标准 SFT 和一维课程。
+杩欎簺澧炵泭涔熸彮绀轰簡缁勪欢涔嬮棿鐨勫垎宸ャ€?
+闃舵鍖栦笌缁ф壙閫愭鏋勫缓鑳藉姏锛沑crs{} 寮哄寲鏄惧紡璁＄畻锛沑dacds{} 骞虫粦闃舵鍐呬紭鍖栵紱\sar{} 鍒欏皢涓撻暱杞寲涓哄疄闄呮帹鐞嗐€?
+杩欑鍒嗚В鏈夊姪浜庤В閲婁负浠€涔堝畬鏁存鏋跺悓鏃朵紭浜庢爣鍑?SFT 鍜屼竴缁磋绋嬨€?
 
-与此同时，剩余错误分布表明，并非所有瓶颈都能仅靠训练组织解决。
-在密集或低分辨率图表上的感知错误仍然存在，这说明未来工作应将课程学习与更强的图表感知视觉编码器或区域级监督结合起来。
+涓庢鍚屾椂锛屽墿浣欓敊璇垎甯冭〃鏄庯紝骞堕潪鎵€鏈夌摱棰堥兘鑳戒粎闈犺缁冪粍缁囪В鍐炽€?
+鍦ㄥ瘑闆嗘垨浣庡垎杈ㄧ巼鍥捐〃涓婄殑鎰熺煡閿欒浠嶇劧瀛樺湪锛岃繖璇存槑鏈潵宸ヤ綔搴斿皢璇剧▼瀛︿範涓庢洿寮虹殑鍥捐〃鎰熺煡瑙嗚缂栫爜鍣ㄦ垨鍖哄煙绾х洃鐫ｇ粨鍚堣捣鏉ャ€?
 
-\section{结论}
-我们提出了面向图表理解的 \fullmethod{}，该框架沿任务复杂度和样本难度组织学习。
-该方法由 \crs{} 提供显式可执行推理监督，并由 \dacds{} 提供难度感知样本排序。
-为了让所得阶段专家在部署时可用，我们进一步提出 \sar{}，一种为每个查询选择最合适专家的轻量路由模块。
+\section{缁撹}
+鎴戜滑鎻愬嚭浜嗛潰鍚戝浘琛ㄧ悊瑙ｇ殑 \fullmethod{}锛岃妗嗘灦娌夸换鍔″鏉傚害鍜屾牱鏈毦搴︾粍缁囧涔犮€?
+璇ユ柟娉曠敱 \crs{} 鎻愪緵鏄惧紡鍙墽琛屾帹鐞嗙洃鐫ｏ紝骞剁敱 \dacds{} 鎻愪緵闅惧害鎰熺煡鏍锋湰鎺掑簭銆?
+涓轰簡璁╂墍寰楅樁娈典笓瀹跺湪閮ㄧ讲鏃跺彲鐢紝鎴戜滑杩涗竴姝ユ彁鍑?\sar{}锛屼竴绉嶄负姣忎釜鏌ヨ閫夋嫨鏈€鍚堥€備笓瀹剁殑杞婚噺璺敱妯″潡銆?
 
 % TODO-EXP-29: Replace conclusion-level summary results with final real numbers and claims.
-在 ChartQA、PlotQA、FigureQA、ChartBench 和 OpenCQA 上，所提出系统稳定优于标准 LoRA 微调和强单阶段基线。
-在 ChartQA 上，\method{}+\sar{} 仅用 12K 合成样本达到 83.41\%，同时提升了鲁棒性、数据效率和推理可用性。
-这些结果表明，对于图表理解这类多模态推理任务，组织模型 \emph{如何} 学习，可能与扩展模型 \emph{从什么} 数据中学习同样重要。
+鍦?ChartQA銆丳lotQA銆丗igureQA銆丆hartBench 鍜?OpenCQA 涓婏紝鎵€鎻愬嚭绯荤粺绋冲畾浼樹簬鏍囧噯 LoRA 寰皟鍜屽己鍗曢樁娈靛熀绾裤€?
+鍦?ChartQA 涓婏紝\method{}+\sar{} 浠呯敤 12K 鍚堟垚鏍锋湰杈惧埌 83.41\%锛屽悓鏃舵彁鍗囦簡椴佹鎬с€佹暟鎹晥鐜囧拰鎺ㄧ悊鍙敤鎬с€?
+杩欎簺缁撴灉琛ㄦ槑锛屽浜庡浘琛ㄧ悊瑙ｈ繖绫诲妯℃€佹帹鐞嗕换鍔★紝缁勭粐妯″瀷 \emph{濡備綍} 瀛︿範锛屽彲鑳戒笌鎵╁睍妯″瀷 \emph{浠庝粈涔坿 鏁版嵁涓涔犲悓鏍烽噸瑕併€?
 
-\section*{局限性}
-本研究仍有若干局限。
+\section*{灞€闄愭€
+鏈爺绌朵粛鏈夎嫢骞插眬闄愩€?
 
-\paragraph{合成训练分布。}
-尽管迁移结果令人鼓舞，课程主要在合成图表上训练。
-具有异常布局、嵌套标注或领域特定约定的真实图表仍可能造成分布偏移。
+\paragraph{鍚堟垚璁粌鍒嗗竷銆倉
+灏界杩佺Щ缁撴灉浠や汉榧撹垶锛岃绋嬩富瑕佸湪鍚堟垚鍥捐〃涓婅缁冦€?
+鍏锋湁寮傚父甯冨眬銆佸祵濂楁爣娉ㄦ垨棰嗗煙鐗瑰畾绾﹀畾鐨勭湡瀹炲浘琛ㄤ粛鍙兘閫犳垚鍒嗗竷鍋忕Щ銆?
 
-\paragraph{路由监督。}
-\sar{} 依赖由保留数据构造的 oracle 路由标签。
-尽管路由器轻量且有效，更原则化的端到端联合学习专家和路由的形式可能进一步提升性能。
+\paragraph{璺敱鐩戠潱銆倉
+\sar{} 渚濊禆鐢变繚鐣欐暟鎹瀯閫犵殑 oracle 璺敱鏍囩銆?
+灏界璺敱鍣ㄨ交閲忎笖鏈夋晥锛屾洿鍘熷垯鍖栫殑绔埌绔仈鍚堝涔犱笓瀹跺拰璺敱鐨勫舰寮忓彲鑳借繘涓€姝ユ彁鍗囨€ц兘銆?
 
-\paragraph{图表类型覆盖。}
-我们关注五种常见图表类型。
-热图、桑基图、地图和 3D 图等更广泛的可视化形式仍不在本文范围内。
+\paragraph{鍥捐〃绫诲瀷瑕嗙洊銆倉
+鎴戜滑鍏虫敞浜旂甯歌鍥捐〃绫诲瀷銆?
+鐑浘銆佹鍩哄浘銆佸湴鍥惧拰 3D 鍥剧瓑鏇村箍娉涚殑鍙鍖栧舰寮忎粛涓嶅湪鏈枃鑼冨洿鍐呫€?
 
-\paragraph{语言范围。}
-所有实验均为英文。
-多语言图表理解仍是开放问题。
+\paragraph{璇█鑼冨洿銆倉
+鎵€鏈夊疄楠屽潎涓鸿嫳鏂囥€?
+澶氳瑷€鍥捐〃鐞嗚В浠嶆槸寮€鏀鹃棶棰樸€?
 
 \appendices
-\section{训练细节}
-\paragraph{数据集构成。}
-图~\ref{fig:dataset_dist} 可视化了合成训练数据的构成。
-图表类型分布大致均衡，其中柱状图和折线图略多于面积图。
-难度等级按设计偏向简单样本，这反映了课程学习思想。
+\section{璁粌缁嗚妭}
+\paragraph{鏁版嵁闆嗘瀯鎴愩€倉
+鍥緙\ref{fig:dataset_dist} 鍙鍖栦簡鍚堟垚璁粌鏁版嵁鐨勬瀯鎴愩€?
+鍥捐〃绫诲瀷鍒嗗竷澶ц嚧鍧囪　锛屽叾涓煴鐘跺浘鍜屾姌绾垮浘鐣ュ浜庨潰绉浘銆?
+闅惧害绛夌骇鎸夎璁″亸鍚戠畝鍗曟牱鏈紝杩欏弽鏄犱簡璇剧▼瀛︿範鎬濇兂銆?
 
 \begin{figure}[!t]
     \centering
-    \includegraphics[width=\columnwidth]{figures/fig11_dataset_distribution.png}
-    \caption{合成训练数据分布。（a）图表类型。（b）场景类别。（c）难度等级。}
+    \includegraphics[width=\columnwidth]{figs/fig11_dataset_distribution.png}
+    \caption{鍚堟垚璁粌鏁版嵁鍒嗗竷銆傦紙a锛夊浘琛ㄧ被鍨嬨€傦紙b锛夊満鏅被鍒€傦紙c锛夐毦搴︾瓑绾с€倉
     \label{fig:dataset_dist}
 \end{figure}
 
-\paragraph{超参数。}
-表~\ref{tab:hyperparams} 列出了各阶段超参数。
-阶段 5 使用更长的最大序列长度以容纳代码输出。
+\paragraph{瓒呭弬鏁般€倉
+琛▇\ref{tab:hyperparams} 鍒楀嚭浜嗗悇闃舵瓒呭弬鏁般€?
+闃舵 5 浣跨敤鏇撮暱鐨勬渶澶у簭鍒楅暱搴︿互瀹圭撼浠ｇ爜杈撳嚭銆?
 
 \begin{table}[!t]
 \centering
@@ -675,13 +675,13 @@ LoRA Alpha & 16 & 16 & 16 & 16 & 16 \\
 LoRA Dropout & 0.1 & 0.1 & 0.1 & 0.1 & 0.1 \\
 \bottomrule
 \end{tabular}
-\caption{课程训练的超参数。}
+\caption{璇剧▼璁粌鐨勮秴鍙傛暟銆倉
 \label{tab:hyperparams}
 \end{table}
 
-\paragraph{训练动态。}
-表~\ref{tab:training_dynamics} 总结了各阶段优化过程。
-大多数阶段在前两到三个 epoch 内达到最终性能的 90\%，说明继承提供了良好的初始化。
+\paragraph{璁粌鍔ㄦ€併€倉
+琛▇\ref{tab:training_dynamics} 鎬荤粨浜嗗悇闃舵浼樺寲杩囩▼銆?
+澶у鏁伴樁娈靛湪鍓嶄袱鍒颁笁涓?epoch 鍐呰揪鍒版渶缁堟€ц兘鐨?90\%锛岃鏄庣户鎵挎彁渚涗簡鑹ソ鐨勫垵濮嬪寲銆?
 
 \begin{table}[!t]
 \centering
@@ -698,22 +698,22 @@ Epochs to 90\% & 3 & 2 & 2 & 4 & 2 \\
 Wall-clock (h) & 3.6 & 2.7 & 2.5 & 9.6 & 2.5 \\
 \bottomrule
 \end{tabular}
-\caption{各阶段训练动态。阶段 4 最耗时，因为其样本数约为其他阶段的三倍。}
+\caption{鍚勯樁娈佃缁冨姩鎬併€傞樁娈?4 鏈€鑰楁椂锛屽洜涓哄叾鏍锋湰鏁扮害涓哄叾浠栭樁娈电殑涓夊€嶃€倉
 \label{tab:training_dynamics}
 \end{table}
 
-\section{附加结果}
-\paragraph{路由效率。}
+\section{闄勫姞缁撴灉}
+\paragraph{璺敱鏁堢巼銆倉
 % TODO-EXP-30: Replace routing-efficiency numbers and latency claims with real deployment measurements.
-表~\ref{tab:efficiency} 报告了阶段路由的部署成本。
-路由器每个样本仅增加 5.7 ms 延迟，并且避免加载多个大型完整模型，因为所有专家共享同一个冻结骨干，仅在轻量 LoRA 参数上不同。
+琛▇\ref{tab:efficiency} 鎶ュ憡浜嗛樁娈佃矾鐢辩殑閮ㄧ讲鎴愭湰銆?
+璺敱鍣ㄦ瘡涓牱鏈粎澧炲姞 5.7 ms 寤惰繜锛屽苟涓旈伩鍏嶅姞杞藉涓ぇ鍨嬪畬鏁存ā鍨嬶紝鍥犱负鎵€鏈変笓瀹跺叡浜悓涓€涓喕缁撻骞诧紝浠呭湪杞婚噺 LoRA 鍙傛暟涓婁笉鍚屻€?
 
 \begin{table}[!t]
 \centering
 \small
 \begin{tabular}{lcc}
 \toprule
-\textbf{指标} & \textbf{最佳阶段} & \textbf{\method{}+\sar{}} \\
+\textbf{鎸囨爣} & \textbf{鏈€浣抽樁娈祡 & \textbf{\method{}+\sar{}} \\
 \midrule
 Latency / sample (ms) & 184.2 & 189.9 \\
 Extra routing cost (ms) & --- & 5.7 \\
@@ -721,20 +721,20 @@ Adapter storage (MB) & 77 & 308 \\
 Backbone copies & 1 & 1 \\
 \bottomrule
 \end{tabular}
-\caption{部署效率。路由器增加的延迟很小，且由于推理时只切换轻量 LoRA 适配器，系统仍然实用。}
+\caption{閮ㄧ讲鏁堢巼銆傝矾鐢卞櫒澧炲姞鐨勫欢杩熷緢灏忥紝涓旂敱浜庢帹鐞嗘椂鍙垏鎹㈣交閲?LoRA 閫傞厤鍣紝绯荤粺浠嶇劧瀹炵敤銆倉
 \label{tab:efficiency}
 \end{table}
 
-\paragraph{组件贡献。}
+\paragraph{缁勪欢璐＄尞銆倉
 % TODO-EXP-31: Replace Table~\ref{tab:component_detail} with real component-drop values.
-表~\ref{tab:component_detail} 报告了从完整系统中移除各组件时 ChartQA 准确率的下降。
+琛▇\ref{tab:component_detail} 鎶ュ憡浜嗕粠瀹屾暣绯荤粺涓Щ闄ゅ悇缁勪欢鏃?ChartQA 鍑嗙‘鐜囩殑涓嬮檷銆?
 
 \begin{table}[!t]
 \centering
 \small
 \begin{tabular}{lcc}
 \toprule
-\textbf{移除组件} & \textbf{Acc. (\%)} & \textbf{相对完整系统的 $\Delta$} \\
+\textbf{绉婚櫎缁勪欢} & \textbf{Acc. (\%)} & \textbf{鐩稿瀹屾暣绯荤粺鐨?$\Delta$} \\
 \midrule
 \textit{Full \method{}+\sar{}} & \textit{83.41} & --- \\
 \midrule
@@ -747,21 +747,21 @@ w/o Router & 82.12 & $-1.29$ \\
 Standard LoRA SFT & 76.01 & $-7.40$ \\
 \bottomrule
 \end{tabular}
-\caption{在 ChartQA 上，以从完整系统移除各组件后的性能下降衡量组件贡献。}
+\caption{鍦?ChartQA 涓婏紝浠ヤ粠瀹屾暣绯荤粺绉婚櫎鍚勭粍浠跺悗鐨勬€ц兘涓嬮檷琛￠噺缁勪欢璐＄尞銆倉
 \label{tab:component_detail}
 \end{table}
 
-\paragraph{多任务画像。}
+\paragraph{澶氫换鍔＄敾鍍忋€倉
 % TODO-EXP-32: Replace Table~\ref{tab:task_profile} with real internal multi-task comparison results.
-表~\ref{tab:task_profile} 比较了课程训练与标准 SFT 在五类内部任务上的表现。
-最大增益出现在推理和代码相关任务上，这与 \crs{} 和阶段化能力构建的设计动机一致。
+琛▇\ref{tab:task_profile} 姣旇緝浜嗚绋嬭缁冧笌鏍囧噯 SFT 鍦ㄤ簲绫诲唴閮ㄤ换鍔′笂鐨勮〃鐜般€?
+鏈€澶у鐩婂嚭鐜板湪鎺ㄧ悊鍜屼唬鐮佺浉鍏充换鍔′笂锛岃繖涓?\crs{} 鍜岄樁娈靛寲鑳藉姏鏋勫缓鐨勮璁″姩鏈轰竴鑷淬€?
 
 \begin{table}[!t]
 \centering
 \small
 \begin{tabular}{lcc}
 \toprule
-\textbf{任务类型} & \textbf{\method{}} & \textbf{Standard SFT} \\
+\textbf{浠诲姟绫诲瀷} & \textbf{\method{}} & \textbf{Standard SFT} \\
 \midrule
 T1: Description (BLEU) & 25.0 & 12.8 \\
 T2: Basic VQA (Acc.) & 25.1 & 18.4 \\
@@ -770,7 +770,7 @@ T4: Visual Analysis (Acc.) & 82.1 & 55.4 \\
 T5: Code Generation (Acc.) & 99.2 & 63.1 \\
 \bottomrule
 \end{tabular}
-\caption{内部任务族上的性能。课程学习对推理密集能力的提升最明显。}
+\caption{鍐呴儴浠诲姟鏃忎笂鐨勬€ц兘銆傝绋嬪涔犲鎺ㄧ悊瀵嗛泦鑳藉姏鐨勬彁鍗囨渶鏄庢樉銆倉
 \label{tab:task_profile}
 \end{table}
 
@@ -779,3 +779,4 @@ T5: Code Generation (Acc.) & 99.2 & 63.1 \\
 
 \end{CJK*}
 \end{document}
+

@@ -1,1 +1,10 @@
 build/
+legacy/
+.cache/
+models/
+router_data/
+tools/
+**/__pycache__/
+*.py[cod]
+*.pid.json
+*.log

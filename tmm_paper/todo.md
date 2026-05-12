@@ -211,6 +211,33 @@
 
 - 如果有余力，可以额外补一个简单的显著性检验
 
+### 完成状态
+
+- `部分完成`
+
+### 当前真实结果
+
+- 当前已完成 `2D-CL + SAR` 的 `3 seeds`
+- 种子列表：`[42, 3407, 2025]`
+- `2D-CL + SAR`：`82.61 ± 0.04`
+- 单次结果：
+  - `seed 42`：`82.56`
+  - `seed 3407`：`82.64`
+  - `seed 2025`：`82.64`
+- 汇总文件：
+  - [multiseed_summary.json](file:///root/autodl-tmp/data/router_runs/e03_router_multiseed/multiseed_summary.json)
+
+### 当前待补
+
+- Standard LoRA SFT 的 `3 seeds`
+- `1D-Difficulty` 的 `3 seeds`
+- `1D-Task` 的 `3 seeds`
+- Best single-stage `2D-CL` 的 `3 seeds`
+
+### 结果回填
+
+- [main.tex](file:///root/autodl-tmp/data/tmm_paper/main.tex#L375-L402)
+
 ---
 
 ## 3.4 跨模型实验

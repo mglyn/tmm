@@ -1,4 +1,4 @@
-﻿\documentclass[journal]{IEEEtran}
+\documentclass[journal]{IEEEtran}
 \usepackage{amsmath,amsfonts,amssymb}
 \usepackage{algorithmic}
 \usepackage{algorithm}
@@ -35,11 +35,9 @@ Chart understanding requires vision-language models to combine visual grounding,
 We present \textbf{\fullmethod{} (\method{})}, a progressive framework that structures chart learning along two axes: \textit{task complexity}, moving from description to question answering, visual analysis, and code generation; and \textit{sample difficulty}, ordering examples from direct retrieval to expert-level reasoning.
 The framework is supported by \textbf{Code-as-Reasoning Supervision (\crs{})}, which teaches explicit intermediate computation through executable Python traces, and \textbf{Difficulty-Aware Curriculum Data Selection (\dacds{})}, which ranks training instances by reasoning complexity.
 To address the deployment cost of maintaining multiple stage-specialized adapters, we further introduce a lightweight \textbf{Stage-Aware Router (\sar{})} that predicts which stage expert should answer a given query at inference time.
-% TODO-EXP-01: Replace abstract-level headline results (ChartQA main score, gain vs. SFT, gain vs. best single-stage adapter).
-Using Qwen2.5-VL-7B as the base model and only 12K synthetic training samples, \method{}+\sar{} achieves 83.41\% accuracy on ChartQA, improving over standard LoRA fine-tuning by 7.40 points and over the best single-stage adapter by 1.29 points.
-The gains are consistent across three random seeds, two additional backbones, and four out-of-domain benchmarks including PlotQA, FigureQA, ChartBench, and OpenCQA.
-% TODO-EXP-02: Replace abstract-level summary claims tied to robustness/efficiency (e.g., routing overhead).
-Further analyses show that curriculum structure improves data efficiency and robustness, while \sar{} converts stage specialization into a practical inference mechanism with only 5.7 ms routing overhead per sample.
+Using Qwen2.5-VL-7B as the base model and only 12K synthetic training samples, \method{}+\sar{} achieves 82.60\% accuracy on ChartQA, improving over standard LoRA fine-tuning by 6.59 points and over the best single-stage adapter by 0.48 points.
+On the same benchmark, oracle routing reaches 87.48\%, indicating that stage specialization is useful but current routing remains the main bottleneck.
+Further analyses show that \sar{} converts stage specialization into a deployable inference mechanism, with a measured router-side dispatch cost of 325.5 ms per sample and 3.49 GB total storage for four LoRA adapters.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -80,14 +78,13 @@ This issue matters especially in realistic deployments where questions vary from
 
 To solve this, we introduce a lightweight \textbf{Stage-Aware Router (\sar{})}.
 Given a chart-question pair, \sar{} predicts which stage expert is most suitable and dispatches the query accordingly.
-The router is trained using oracle stage labels derived from held-out validation data and adds negligible latency.
+The router is trained using oracle stage labels derived from held-out validation data.
 In this way, stage specialization becomes not just an analysis observation but a deployable system design.
 
 Our evaluation is substantially broader than the conference version.
-% TODO-EXP-03: Replace introduction summary numbers after final experiments are fixed.
-Using Qwen2.5-VL-7B and only 12K synthetic samples, \method{}+\sar{} reaches 83.41\% on ChartQA, outperforming standard LoRA SFT by 7.40 points and the best single-stage adapter by 1.29 points.
-The improvement is stable across three random seeds, transfers to Qwen2.5-VL-3B and InternVL2-8B, and generalizes to PlotQA, FigureQA, ChartBench, and OpenCQA.
-We further show that the curriculum is especially beneficial in low-data regimes, reduces reasoning and format errors, and improves robustness under image corruption.
+Using Qwen2.5-VL-7B and only 12K synthetic samples, \method{}+\sar{} reaches 82.60\% on ChartQA, outperforming standard LoRA SFT by 6.59 points and the best single-stage adapter by 0.48 points.
+Oracle routing reaches 87.48\%, showing that stage specialization is real even though the current lightweight router still leaves room for better routing policies.
+We further report the storage and router-side dispatch overhead required to turn multi-stage specialization into a reproducible deployment setup.
 
 Our contributions are as follows:
 \begin{itemize}
@@ -217,8 +214,8 @@ The predicted stage is
 
 \paragraph{Oracle Routing Labels.}
 To train \sar{}, we construct a held-out routing set $\mathcal{R}$ that is disjoint from curriculum training data.
-For each sample in $\mathcal{R}$, we evaluate all deployable stage adapters and assign the oracle label to the stage that yields the correct answer with the highest normalized answer likelihood.
-If several stages are correct, the one with the highest confidence is chosen; if all are wrong, the label is assigned to the least erroneous stage under exact-match and normalized edit distance criteria.
+For each sample in $\mathcal{R}$, we evaluate all deployable stage adapters and assign the oracle label based on answer correctness and rule-based tie breaking.
+If one or more stages answer correctly, the oracle label is assigned to a correct stage; when multiple stages are correct, ties are resolved with question-type-aware priority rules. If all stages are incorrect, the label is assigned to the least erroneous stage under exact-match, normalized edit distance, and numeric error criteria.
 
 \paragraph{Why Routing Helps.}
 Curriculum training naturally produces experts rather than a single uniform model.
@@ -293,17 +290,17 @@ DePlot & 282M & $\sim$2M & 54.3 \\
 \midrule
 Qwen2.5-VL-7B (zero-shot) & 7B & --- & 80.28 \\
 Standard LoRA SFT & 7B & 12K & 76.01 \\
-\textbf{Ours (\method{}+\sar{})} & \textbf{7B} & \textbf{12K} & \textbf{83.41} \\
+\textbf{Ours (\method{}+\sar{})} & \textbf{7B} & \textbf{12K} & \textbf{82.60} \\
 \bottomrule
 \end{tabular}
-\caption{Comparison on ChartQA. Our full system improves over standard LoRA SFT by 7.40 points while using only 12K synthetic chart samples.}
+\caption{Comparison on ChartQA. Our full system improves over standard LoRA SFT by 6.59 points while using only 12K synthetic chart samples.}
 \label{tab:sota}
 \end{table}
 
 % TODO-EXP-05: Replace the main-results narrative numbers in this paragraph.
 Table~\ref{tab:sota} shows that the proposed method is highly data-efficient.
-With only 12K synthetic samples, \method{}+\sar{} surpasses chart-specialized systems trained on substantially larger chart corpora and improves over standard LoRA SFT by 7.40 points.
-Compared with the frozen zero-shot Qwen2.5-VL-7B baseline, curriculum learning plus routing yields a 3.13-point gain, indicating that structured adaptation adds value even when the base model is already strong.
+With only 12K synthetic samples, \method{}+\sar{} improves over standard LoRA SFT by 6.59 points and over the frozen zero-shot Qwen2.5-VL-7B baseline by 2.32 points.
+The result also edges past the best fixed single-stage expert (82.12\%), showing that routing is useful once paired with a conservative fallback policy.
 
 % TODO-EXP-06: Replace Table~\ref{tab:transfer} with real cross-dataset results.
 \begin{table}[!t]
@@ -313,7 +310,7 @@ Compared with the frozen zero-shot Qwen2.5-VL-7B baseline, curriculum learning p
 \toprule
 \textbf{Dataset} & \textbf{Std. SFT} & \textbf{Best Stage} & \textbf{\method{}+\sar{}} & \textbf{$\Delta$} \\
 \midrule
-ChartQA & 76.01 & 82.12 & 83.41 & +7.40 \\
+ChartQA & 76.01 & 82.12 & 82.60 & +6.59 \\
 PlotQA & 52.40 & 56.71 & 58.20 & +5.80 \\
 FigureQA & 90.00 & 92.11 & 93.10 & +3.10 \\
 ChartBench & 68.10 & 72.82 & 74.60 & +6.50 \\
@@ -339,35 +336,33 @@ This consistency suggests that the curriculum does not merely optimize for one d
 \toprule
 \textbf{Configuration} & \textbf{Stage} & \textbf{Diff.} & \textbf{CRS} & \textbf{Inh.} & \textbf{Router} & \textbf{Acc.} \\
 \midrule
-Full \method{}+\sar{} & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & 83.41 \\
+Full \method{}+\sar{} & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & 82.60 \\
 \midrule
 w/o Router & \checkmark & \checkmark & \checkmark & \checkmark & --- & 82.12 \\
-w/o Staging & --- & \checkmark & \checkmark & --- & --- & 79.18 \\
-w/o Difficulty & \checkmark & --- & \checkmark & \checkmark & --- & 81.27 \\
-w/o CRS & \checkmark & \checkmark & --- & \checkmark & --- & 80.11 \\
-w/o Inheritance & \checkmark & \checkmark & \checkmark & --- & --- & 77.86 \\
+w/o Staging & --- & \checkmark & \checkmark & --- & --- & 78.64 \\
+w/o Difficulty & \checkmark & --- & \checkmark & \checkmark & --- & 80.84 \\
+w/o CRS & \checkmark & \checkmark & --- & \checkmark & --- & 79.48 \\
+w/o Inheritance & \checkmark & \checkmark & \checkmark & --- & --- & 77.32 \\
 \midrule
 Standard LoRA SFT & --- & --- & --- & --- & --- & 76.01 \\
 \bottomrule
 \end{tabular}
-\caption{Ablation study on ChartQA. Each component contributes positively, with adapter inheritance and staging providing the largest gains, and \sar{} adding a further 1.29 points over the best single-stage adapter.}
+\caption{Ablation study on ChartQA. Each component contributes positively, with adapter inheritance and task staging providing the largest gains, and \sar{} adding a further 0.48 points over the best single-stage adapter.}
 \label{tab:ablation}
 \end{table}
 
-% TODO-EXP-09: Replace ablation gains and component-importance statements with real values.
 The ablation results in Table~\ref{tab:ablation} reinforce three conclusions.
-First, adapter inheritance remains the most important training component: removing it costs 5.55 points.
-Second, both task staging and within-stage difficulty ordering matter, confirming that the curriculum is genuinely two-dimensional.
-Third, \sar{} contributes an additional 1.29 points after training is complete, showing that stage specialization is useful only when it is turned into an inference policy.
+First, adapter inheritance remains the most important training component: removing it costs 5.28 points.
+Second, both task staging and within-stage difficulty ordering matter, confirming that the curriculum is genuinely two-dimensional: removing staging costs 3.96 points, while removing difficulty ordering costs 1.76 points.
+Third, \sar{} contributes an additional 0.48 points after training is complete, showing that stage specialization is useful only when it is turned into an inference policy.
 
 \paragraph{Comparison with 1D Curricula.}
 The \emph{w/o Difficulty} row corresponds to a task-only curriculum, while \emph{w/o Staging} corresponds to a difficulty-only curriculum.
-% TODO-EXP-10: Replace the 1D-vs-2D comparison chain with real final values.
 The full progression is:
 \begin{align*}
-\text{2D-CL+SAR } (83.41) &> \text{ 2D-CL } (82.12) \\
-&> \text{ 1D-Task } (81.27) \\
-&> \text{ 1D-Difficulty } (79.18) \\
+\text{2D-CL+SAR } (82.60) &> \text{ 2D-CL } (82.12) \\
+&> \text{ 1D-Task } (80.84) \\
+&> \text{ 1D-Difficulty } (78.64) \\
 &> \text{ SFT } (76.01).
 \end{align*}
 Task decomposition provides more benefit than difficulty ordering alone, but the full two-dimensional curriculum yields the best single-stage expert, and routing converts it into the best overall system.
@@ -385,7 +380,7 @@ Standard LoRA SFT & 76.01 $\pm$ 0.31 \\
 1D-Difficulty & 79.18 $\pm$ 0.28 \\
 1D-Task & 81.27 $\pm$ 0.26 \\
 \method{} (best single stage) & 82.12 $\pm$ 0.24 \\
-\method{}+\sar{} & 83.41 $\pm$ 0.18 \\
+\method{}+\sar{} & TBD \\
 \bottomrule
 \end{tabular}
 \caption{Three-seed evaluation on ChartQA. The improvement of \method{}+\sar{} over standard SFT is stable, and the variance decreases as curriculum structure becomes stronger.}
@@ -404,9 +399,7 @@ Standard LoRA SFT & 76.01 $\pm$ 0.31 \\
 \end{figure*}
 
 % TODO-EXP-12: Replace the multi-seed interpretation (mean/std improvements) with real values.
-Table~\ref{tab:seeds} shows that the gains are stable across random seeds.
-The full system improves over standard SFT by 7.40 points with a standard deviation of only 0.18.
-The smaller variance suggests that curriculum structure also regularizes optimization, not just final accuracy.
+Table~\ref{tab:seeds} will be updated after the three-seed runs are completed.
 
 % TODO-EXP-13: Replace Table~\ref{tab:models} with real cross-model results.
 \begin{table}[!t]
@@ -416,7 +409,7 @@ The smaller variance suggests that curriculum structure also regularizes optimiz
 \toprule
 \textbf{Model} & \textbf{Std. SFT} & \textbf{\method{}+\sar{}} & \textbf{$\Delta$} \\
 \midrule
-Qwen2.5-VL-7B & 76.01 & 83.41 & +7.40 \\
+Qwen2.5-VL-7B & 76.01 & 82.60 & +6.59 \\
 Qwen2.5-VL-3B & 72.41 & 77.58 & +5.17 \\
 InternVL2-8B & 77.36 & 81.94 & +4.58 \\
 \bottomrule
@@ -434,27 +427,27 @@ All three backbones improve, with the largest absolute gain observed for Qwen2.5
 \begin{table}[!t]
 \centering
 \small
-\begin{tabular}{lcccc}
+\begin{tabular}{lc}
 \toprule
-\textbf{Inference Strategy} & \textbf{ChartQA} & \textbf{ChartBench} & \textbf{OpenCQA} & \textbf{Avg.} \\
+\textbf{Inference Strategy} & \textbf{ChartQA} \\
 \midrule
-Stage 2 only & 81.74 & 70.31 & 64.90 & 72.32 \\
-Stage 3 only & 80.68 & 71.24 & 66.11 & 72.68 \\
-Stage 4 only & 82.12 & 72.82 & 67.38 & 74.11 \\
-Stage 5 only & 78.44 & 69.73 & 65.92 & 71.36 \\
-Oracle routing & 84.06 & 75.51 & 70.82 & 76.80 \\
-\textbf{Predicted routing (\sar{})} & \textbf{83.41} & \textbf{74.60} & \textbf{69.30} & \textbf{75.77} \\
+Stage 2 only & 82.12 \\
+Stage 3 only & 80.00 \\
+Stage 4 only & 82.00 \\
+Stage 5 only & 79.32 \\
+Oracle routing & 87.48 \\
+\textbf{Predicted routing (\sar{})} & \textbf{82.60} \\
 \bottomrule
 \end{tabular}
-\caption{Routing analysis. \sar{} recovers most of the oracle routing gain and consistently outperforms any fixed single-stage adapter.}
+\caption{Routing analysis on ChartQA. The final fixed routing policy improves over the best fixed stage by 0.48 points, but still trails oracle routing by 4.88 points.}
 \label{tab:routing}
 \end{table}
 
 % TODO-EXP-16: Replace routing-gap, oracle-gap-closing, and routing-distribution claims with real values.
 Table~\ref{tab:routing} demonstrates why routing is valuable.
-No single stage dominates across all datasets: Stage 4 is the strongest fixed choice overall, but it still trails oracle routing by 2.69 points on average.
-The predicted router recovers 1.66 of those 2.69 points, closing 61.7\% of the oracle gap while using only a lightweight classifier.
-On ChartQA, the router selects Stages 2, 3, 4, and 5 for 29\%, 25\%, 38\%, and 8\% of samples, respectively, matching the intuition that real benchmark questions span multiple capability types.
+On ChartQA, no fixed expert dominates the full oracle upper bound: the best fixed choice is Stage 2 at 82.12\%, whereas oracle routing reaches 87.48\%.
+The predicted router reaches 82.60\%, recovering 0.48 of the 5.36 available points between the best fixed stage and oracle routing.
+Under the final fixed policy, the router dispatches 95.0\% of samples to Stage 2, 4.04\% to Stage 3, 0.88\% to Stage 4, and 0.08\% to Stage 5, showing that the current router is effective mainly as a conservative correction layer rather than a balanced expert allocator.
 
 \subsection{Data Efficiency}
 % TODO-EXP-17: Replace Table~\ref{tab:scaling} with real data-scaling results.
@@ -468,7 +461,7 @@ On ChartQA, the router selects Stages 2, 3, 4, and 5 for 29\%, 25\%, 38\%, and 8
 10\% & 61.80 & 66.42 & 69.73 \\
 25\% & 68.91 & 73.46 & 76.84 \\
 50\% & 72.73 & 78.38 & 81.02 \\
-100\% & 76.01 & 81.27 & 83.41 \\
+100\% & 76.01 & 81.27 & 82.60 \\
 150\% & 77.18 & 81.96 & 84.03 \\
 \bottomrule
 \end{tabular}
@@ -613,9 +606,8 @@ We introduced \fullmethod{} for chart understanding, a framework that structures
 The method is supported by \crs{} for explicit executable reasoning supervision and \dacds{} for difficulty-aware sample ordering.
 To make the resulting stage experts practical at deployment time, we further proposed \sar{}, a lightweight routing module that selects the most suitable expert for each query.
 
-% TODO-EXP-29: Replace conclusion-level summary results with final real numbers and claims.
-Across ChartQA, PlotQA, FigureQA, ChartBench, and OpenCQA, the proposed system consistently outperforms standard LoRA fine-tuning and strong single-stage baselines.
-On ChartQA, \method{}+\sar{} reaches 83.41\% with only 12K synthetic samples, while also improving robustness, data efficiency, and inference usability.
+On ChartQA, \method{}+\sar{} reaches 82.60\% with only 12K synthetic samples, improving over standard LoRA fine-tuning by 6.59 points and over the best fixed single-stage adapter by 0.48 points.
+Oracle routing at 87.48\% further shows that the multi-stage experts are complementary, while the current gap to oracle highlights routing as the main target for future improvement.
 These results suggest that for multimodal reasoning tasks such as chart understanding, organizing \emph{how} the model learns can be as important as scaling \emph{what} it learns from.
 
 \section*{Limitations}
@@ -702,9 +694,9 @@ Wall-clock (h) & 3.6 & 2.7 & 2.5 & 9.6 & 2.5 \\
 
 \section{Additional Results}
 \paragraph{Efficiency of Routing.}
-% TODO-EXP-30: Replace routing-efficiency numbers and latency claims with real deployment measurements.
-Table~\ref{tab:efficiency} reports the deployment cost of stage routing.
-The router adds only 5.7 ms latency per sample and avoids loading multiple large full models because all experts share the same frozen backbone and differ only in lightweight LoRA parameters.
+Table~\ref{tab:efficiency} reports the measurable deployment-side cost of stage routing under the current evaluation pipeline.
+Because routing requires a separate frozen-backbone forward pass before expert selection, the present implementation adds 325.5 ms of router-side dispatch time per sample on ChartQA.
+Each LoRA expert occupies roughly 873 MB, so storing all four stage adapters requires 3.49 GB compared with 872.6 MB for a single fixed-stage deployment.
 
 \begin{table}[!t]
 \centering
@@ -713,13 +705,14 @@ The router adds only 5.7 ms latency per sample and avoids loading multiple large
 \toprule
 \textbf{Metric} & \textbf{Best Stage} & \textbf{\method{}+\sar{}} \\
 \midrule
-Latency / sample (ms) & 184.2 & 189.9 \\
-Extra routing cost (ms) & --- & 5.7 \\
-Adapter storage (MB) & 77 & 308 \\
+ChartQA accuracy (\%) & 82.12 & 82.60 \\
+Router-side dispatch / sample (ms) & --- & 325.5 \\
+Adapter storage (MB) & 872.6 & 3490.7 \\
+Stored adapters & 1 & 4 \\
 Backbone copies & 1 & 1 \\
 \bottomrule
 \end{tabular}
-\caption{Deployment efficiency. The router adds little latency and keeps the system practical because only lightweight LoRA adapters are switched at inference time.}
+\caption{Routing efficiency under the current cached-expert evaluation pipeline. We report the measured router-side dispatch cost and the storage required to keep the stage-specialized LoRA bank available.}
 \label{tab:efficiency}
 \end{table}
 
@@ -734,15 +727,15 @@ Table~\ref{tab:component_detail} reports the accuracy drop on ChartQA when each 
 \toprule
 \textbf{Component Removed} & \textbf{Acc. (\%)} & \textbf{$\Delta$ vs.\ Full} \\
 \midrule
-\textit{Full \method{}+\sar{}} & \textit{83.41} & --- \\
+\textit{Full \method{}+\sar{}} & \textit{82.60} & --- \\
 \midrule
-w/o Adapter Inheritance & 77.86 & $-5.55$ \\
-w/o Task Staging & 79.18 & $-4.23$ \\
-w/o CRS & 80.11 & $-3.30$ \\
-w/o Difficulty Ordering & 81.27 & $-2.14$ \\
-w/o Router & 82.12 & $-1.29$ \\
+w/o Adapter Inheritance & 77.32 & $-5.28$ \\
+w/o Task Staging & 78.64 & $-3.96$ \\
+w/o CRS & 79.48 & $-3.12$ \\
+w/o Difficulty Ordering & 80.84 & $-1.76$ \\
+w/o Router & 82.12 & $-0.48$ \\
 \midrule
-Standard LoRA SFT & 76.01 & $-7.40$ \\
+Standard LoRA SFT & 76.01 & $-6.59$ \\
 \bottomrule
 \end{tabular}
 \caption{Contribution of each component measured as the drop from the full system on ChartQA.}

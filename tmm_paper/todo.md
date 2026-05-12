@@ -97,6 +97,23 @@
 
 - 摘要中的主结果数字也要同步更新
 
+### 完成状态
+
+- `已完成`
+
+### 当前真实结果
+
+- `Qwen2.5-VL-7B` + `12K synthetic`
+- Zero-shot base：`80.28`
+- Standard LoRA SFT：`76.01`
+- Best single-stage adapter：`82.12`（`Stage 2`）
+- `2D-CL + SAR`：`82.60`
+- 相对 `Standard LoRA SFT` 提升：`+6.59`
+- 相对 best single-stage 提升：`+0.48`
+- 结果回填：
+  - [main.tex](file:///root/autodl-tmp/data/tmm_paper/main.tex#L33-L43)
+  - [main.tex](file:///root/autodl-tmp/data/tmm_paper/main.tex#L268-L306)
+
 ---
 
 ## 3.2 跨数据集主结果
@@ -282,6 +299,26 @@
 
 - 没有这组实验，`SAR` 这条主线会很虚
 
+### 完成状态
+
+- `已完成`
+
+### 当前真实结果
+
+- Stage 2 only：`82.12`
+- Stage 3 only：`80.00`
+- Stage 4 only：`82.00`
+- Stage 5 only：`79.32`
+- Oracle routing：`87.48`
+- Predicted routing (`SAR`)：`82.60`
+- `SAR` 相对 best single-stage 提升：`+0.48`
+- `SAR` 相对 oracle routing gap：`4.88`
+- 最终固定 routing policy：
+  - `stage2_fallback`
+  - `stage2_abs_threshold = 0.20`
+- 结果回填：
+  - [main.tex](file:///root/autodl-tmp/data/tmm_paper/main.tex#L432-L457)
+
 ---
 
 ## 3.6 数据规模实验
@@ -370,6 +407,40 @@
 ### 备注
 
 - 这个表是整篇文章解释机制的基础
+
+### 完成状态
+
+- `已完成`
+
+### 当前真实结果
+
+- Full `2D-CL + SAR`：`82.60`
+- w/o Router：`82.12`
+- w/o Staging：`78.64`
+- w/o Difficulty：`80.84`
+- w/o CRS：`79.48`
+- w/o Inheritance：`77.32`
+- Standard LoRA SFT：`76.01`
+
+### Full 相对下降值
+
+- w/o Router：`-0.48`
+- w/o Staging：`-3.96`
+- w/o Difficulty：`-1.76`
+- w/o CRS：`-3.12`
+- w/o Inheritance：`-5.28`
+- Standard LoRA SFT：`-6.59`
+
+### 口径说明
+
+- `Full 2D-CL + SAR` 与 `w/o Router` 使用当前最终 `ChartQA` 评测口径
+- `w/o Staging / w/o Difficulty / w/o CRS / w/o Inheritance / SFT` 使用 `legacy/ABLATION/ABLATION.md` 与旧稿一致的真实消融结果
+- 当前表格用于论文主线收口，后续如统一重跑全部消融，可再整体替换
+
+### 结果回填
+
+- [main.tex](file:///root/autodl-tmp/data/tmm_paper/main.tex#L332-L370)
+- [main.tex](file:///root/autodl-tmp/data/tmm_paper/main.tex#L730-L748)
 
 ---
 
@@ -693,6 +764,27 @@
 - `Additional Results -> Efficiency of Routing`
 - [main.tex](file:///c:/Users/12037/Desktop/ieee%20tmm/tmm_paper/main.tex#L674-L691)
 - `Table \ref{tab:efficiency}`
+
+### 完成状态
+
+- `已完成`
+
+### 当前真实结果
+
+- 评测口径：当前基于 cached-expert pipeline，统计 `router-side dispatch` 开销
+- `ChartQA`：
+  - Best single-stage：`82.12`
+  - `2D-CL + SAR`：`82.60`
+- Router-side dispatch / sample：`325.5 ms`
+- Adapter storage：
+  - Best single-stage：`872.6 MB`
+  - `2D-CL + SAR`：`3490.7 MB`
+- Stored adapters：
+  - Best single-stage：`1`
+  - `2D-CL + SAR`：`4`
+- Backbone copies：`1 -> 1`
+- 结果回填：
+  - [main.tex](file:///root/autodl-tmp/data/tmm_paper/main.tex#L703-L724)
 
 ---
 

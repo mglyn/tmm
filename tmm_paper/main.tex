@@ -252,7 +252,7 @@ All models use LoRA~\cite{hu2022lora} with rank 8, $\alpha=16$, dropout 0.1, and
 Learning rates are $1\times10^{-4}$, $5\times10^{-5}$, $3\times10^{-5}$, $3\times10^{-5}$, and $2\times10^{-5}$ for Stages 1 through 5.
 Each stage trains for 10 epochs.
 The \sar{} classifier is a two-layer MLP trained for 5 epochs with learning rate $1\times10^{-4}$ on frozen multimodal embeddings.
-All results are averaged over three random seeds unless noted otherwise.
+Unless noted otherwise, results are reported from the primary run. We additionally report three-seed stability for the final stage-selection comparison between the best single-stage expert and \sar{}.
 
 \paragraph{Evaluation Benchmarks.}
 We evaluate on ChartQA~\cite{masry2022chartqa} as the primary benchmark.
@@ -376,14 +376,11 @@ Task decomposition provides more benefit than difficulty ordering alone, but the
 \toprule
 \textbf{Method} & \textbf{ChartQA (mean $\pm$ std)} \\
 \midrule
-Standard LoRA SFT & 76.01 $\pm$ 0.31 \\
-1D-Difficulty & 79.18 $\pm$ 0.28 \\
-1D-Task & 81.27 $\pm$ 0.26 \\
-\method{} (best single stage) & 82.12 $\pm$ 0.24 \\
+\method{} (best single stage) & TBD \\
 \method{}+\sar{} & 82.61 $\pm$ 0.04 \\
 \bottomrule
 \end{tabular}
-\caption{Three-seed evaluation on ChartQA. The improvement of \method{}+\sar{} over standard SFT is stable, and the variance decreases as curriculum structure becomes stronger.}
+\caption{Three-seed evaluation on ChartQA for the final stage-selection comparison. We report multi-seed stability for the routed system and reserve the corresponding best single-stage 2D-CL row for the same rerun protocol.}
 \label{tab:seeds}
 \end{table}
 
@@ -399,7 +396,7 @@ Standard LoRA SFT & 76.01 $\pm$ 0.31 \\
 \end{figure*}
 
 The three-seed evaluation for \method{}+\sar{} gives 82.61 $\pm$ 0.04 on ChartQA, indicating that the routing policy is highly stable across random seeds.
-The remaining multi-seed baselines will be refreshed to the same evaluation protocol for a fully consistent comparison.
+Following the reduced protocol adopted for this journal version, the remaining multi-seed rerun is the corresponding best single-stage 2D-CL baseline, which will be refreshed under the same hardware and evaluation pipeline.
 
 % TODO-EXP-13: Replace Table~\ref{tab:models} with real cross-model results.
 \begin{table}[!t]

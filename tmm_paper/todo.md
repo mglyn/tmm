@@ -188,9 +188,6 @@
 - 模型：`Qwen2.5-VL-7B`
 - 种子数：至少 `3 seeds`
 - 对比方法：
-  - Standard LoRA SFT
-  - 1D-Difficulty
-  - 1D-Task
   - Best single-stage `2D-CL`
   - `2D-CL + SAR`
 
@@ -229,10 +226,16 @@
 
 ### 当前待补
 
-- Standard LoRA SFT 的 `3 seeds`
-- `1D-Difficulty` 的 `3 seeds`
-- `1D-Task` 的 `3 seeds`
 - Best single-stage `2D-CL` 的 `3 seeds`
+
+### 方案 B 口径
+
+- `E03` 当前按精简版执行
+- 仅要求补齐：
+  - Best single-stage `2D-CL`
+  - `2D-CL + SAR`
+- `SFT / 1D-Difficulty / 1D-Task` 不再要求在当前阶段重跑 `3 seeds`
+- 这样可以把多 seed 资源集中在最关键的问题上：`SAR` 相对 best single-stage 的提升是否稳定
 
 ### 结果回填
 

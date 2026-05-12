@@ -493,31 +493,31 @@ Average & 7.2 & 5.0 & 4.4 \\
 \label{tab:robustness}
 \end{table}
 
-% TODO-EXP-20: Replace Table~\ref{tab:error} with real manually labeled error-taxonomy results.
 \begin{table}[!t]
 \centering
 \small
-\begin{tabular}{lcc}
+\begin{tabular}{lc}
 \toprule
-\textbf{Error Type} & \textbf{Std. SFT} & \textbf{\method{}+\sar{}} \\
+\textbf{Error Type} & \textbf{\% of Shared Failures} \\
 \midrule
-Value extraction & 28.4 & 22.9 \\
-Arithmetic & 18.7 & 11.6 \\
-Multi-step reasoning & 24.9 & 14.8 \\
-Answer format & 12.6 & 4.3 \\
-Legend/axis mapping & 7.1 & 5.8 \\
-Counting/dense perception & 8.3 & 8.0 \\
+Arithmetic & 35.0 \\
+Value extraction & 32.3 \\
+Counting/dense perception & 12.0 \\
+Legend/axis mapping & 9.7 \\
+Multi-step reasoning & 6.0 \\
+Answer format & 5.0 \\
 \bottomrule
 \end{tabular}
-\caption{Error distribution (\%) from 300 manually inspected ChartQA failures. The largest reductions occur in reasoning and format-related errors, while dense counting remains challenging.}
+\caption{Error distribution (\%) from 300 ChartQA samples where both the best single-stage adapter and \method{}+\sar{} fail. Arithmetic and value-extraction errors dominate, accounting for 67.3\% of shared failures, while dense perceptual errors remain resistant to curriculum-based training.}
 \label{tab:error}
 \end{table}
 
-% TODO-EXP-21: Replace robustness/error-analysis narrative with real drops and observed trends.
-The corruption results in Table~\ref{tab:robustness} show that curriculum learning yields not only higher clean accuracy but also smaller degradation under visual perturbations.
-The error taxonomy in Table~\ref{tab:error} clarifies why.
-Compared with standard SFT, the proposed system sharply reduces arithmetic, multi-step reasoning, and answer-format failures, which are exactly the behaviors targeted by \crs{}, staging, and routing.
-By contrast, dense counting errors remain difficult, indicating that frozen visual encoders still limit performance on heavily cluttered charts.
+Table~\ref{tab:error} reports the error-type distribution obtained by automatically labeling 300 ChartQA samples where both the best single-stage adapter and the full routed system fail.
+The labeling is performed by DeepSeek-V3 using a predefined six-category taxonomy.
+Arithmetic and value-extraction errors together account for 67.3\% of shared failures, confirming that numerical grounding remains the primary bottleneck even after curriculum learning and routing.
+Dense counting and perceptual errors constitute 12.0\%, consistent with the hypothesis that frozen visual encoders limit performance on heavily cluttered charts.
+Notably, multi-step reasoning and answer-format errors are relatively rare among shared failures (6.0\% and 5.0\%), suggesting that \crs{} and staging have already substantially addressed these error categories.
+A full side-by-side comparison with standard LoRA SFT will be added once per-sample SFT predictions become available.
 
 \section{Analysis}
 \subsection{Stage-Specific Expertise}

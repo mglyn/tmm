@@ -596,9 +596,34 @@
 - [main.tex](file:///c:/Users/12037/Desktop/ieee%20tmm/tmm_paper/main.tex#L489-L509)
 - `Table \ref{tab:error}`
 
-### 备注
+### 完成状态
 
-- 这是很值得做的正文实验，不建议省
+- `已完成`
+
+### 当前真实结果
+
+- 已从 `ChartQA` 全量样本中抽取 `300` 条 `Stage2` 与 `SAR` 共同失败的案例
+- 通过 DeepSeek-V3 API 自动标注 `6` 类错误标签
+- 错误分布：
+  - `arithmetic`：`35.0%`
+  - `value extraction`：`32.3%`
+  - `counting/dense perception`：`12.0%`
+  - `legend/axis mapping`：`9.7%`
+  - `multi-step reasoning`：`6.0%`
+  - `answer format`：`5.0%`
+- 标注样本：
+  - [error_analysis_samples_labeled.json](file:///root/autodl-tmp/data/router_runs/e10_error_analysis_stage2_vs_sar/error_analysis_samples_labeled.json)
+  - [error_analysis_samples_labeled.csv](file:///root/autodl-tmp/data/router_runs/e10_error_analysis_stage2_vs_sar/error_analysis_samples_labeled.csv)
+- 标注脚本：
+  - [auto_label_e10_errors.py](file:///root/autodl-tmp/data/scripts/auto_label_e10_errors.py)
+
+### 当前待补
+
+- `SFT` 全量逐样本预测结果，用于做 `SFT vs 2D-CL + SAR` 的两列对比
+
+### 结果回填
+
+- [main.tex](file:///root/autodl-tmp/data/tmm_paper/main.tex#L497-L513)
 
 ---
 

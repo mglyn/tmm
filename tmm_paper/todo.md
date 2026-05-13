@@ -165,6 +165,30 @@
 
 - 如果 `ChartBench / OpenCQA` 暂时来不及，可先只跑你最有把握接入的一个，但最终最好两个都补
 
+### 完成状态
+
+- `部分完成`
+
+### 当前真实结果
+
+- 已完成子项：`FigureQA` 上的 `2D-CL + SAR`
+- 评测脚本：`scripts/eval_e02_sar.py`
+- 评测设置：`sample_limit=5000`
+- 统计口径：展开后的 `FigureQA` QA pairs
+- 最终结果：
+  - `num_correct`: `4903 / 5000`
+  - `accuracy`: `98.06%`
+  - `elapsed_seconds`: `1705.0`
+  - `stage_usage`: `stage2=80`, `stage3=12`, `stage4=4908`, `stage5=0`
+- 结果文件：
+  - `router_runs/e02_figureqa_sar/summary.json`
+  - `router_runs/e02_figureqa_sar/predictions.jsonl`
+  - `router_runs/e02_figureqa_sar/run.log`
+- 待补：
+  - `PlotQA`
+  - `ChartBench`
+  - `OpenCQA`
+
 ---
 
 ## 3.3 多随机种子实验

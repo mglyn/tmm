@@ -5,6 +5,7 @@ models/
 router_data/
 router_runs/
 tools/
+datasets/
 **/__pycache__/
 *.py[cod]
 *.pid.json

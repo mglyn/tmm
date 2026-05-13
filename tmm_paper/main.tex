@@ -302,29 +302,26 @@ Table~\ref{tab:sota} shows that the proposed method is highly data-efficient.
 With only 12K synthetic samples, \method{}+\sar{} improves over standard LoRA SFT by 6.59 points and over the frozen zero-shot Qwen2.5-VL-7B baseline by 2.32 points.
 The result also edges past the best fixed single-stage expert (82.12\%), showing that routing is useful once paired with a conservative fallback policy.
 
-% TODO-EXP-06: Replace Table~\ref{tab:transfer} with real cross-dataset results.
+% TODO-EXP-06: PlotQA / ChartBench / OpenCQA baselines are still pending.
 \begin{table}[!t]
 \centering
 \small
 \begin{tabular}{lcccc}
 \toprule
-\textbf{Dataset} & \textbf{Std. SFT} & \textbf{Best Stage} & \textbf{\method{}+\sar{}} & \textbf{$\Delta$} \\
+\textbf{Dataset} & \textbf{Std. SFT} & \textbf{Best Stage} & \textbf{\method{}+\sar{}} & \textbf{Note} \\
 \midrule
-ChartQA & 76.01 & 82.12 & 82.60 & +6.59 \\
-PlotQA & 52.40 & 56.71 & 58.20 & +5.80 \\
-FigureQA & 90.00 & 92.11 & 93.10 & +3.10 \\
-ChartBench & 68.10 & 72.82 & 74.60 & +6.50 \\
-OpenCQA & 62.70 & 67.38 & 69.30 & +6.60 \\
+ChartQA & 76.01 & 82.12 & 82.60 & in-domain reference \\
+FigureQA (5K) & --- & --- & 98.06 & measured zero-shot transfer \\
 \bottomrule
 \end{tabular}
-\caption{Cross-dataset evaluation. The proposed system consistently improves over standard SFT and also outperforms the best manually selected single-stage adapter.}
+\caption{Current transfer results with real measurements available in this draft. ChartQA is listed as the in-domain reference, while FigureQA reports the completed zero-shot transfer run on 5,000 QA pairs. PlotQA, ChartBench, and OpenCQA are still being added.}
 \label{tab:transfer}
 \end{table}
 
-% TODO-EXP-07: Replace the cross-dataset interpretation after real results are available.
-Table~\ref{tab:transfer} extends the evaluation beyond ChartQA.
-The gains persist across scientific plots (PlotQA), synthetic binary chart QA (FigureQA), and two broader chart reasoning benchmarks (ChartBench and OpenCQA).
-This consistency suggests that the curriculum does not merely optimize for one dataset's answer format, but learns transferable capabilities.
+% TODO-EXP-07: Extend this paragraph after PlotQA / ChartBench / OpenCQA are done.
+Table~\ref{tab:transfer} provides the currently completed transfer evidence beyond ChartQA.
+On FigureQA, which contains synthetic binary chart questions in a format different from the open-ended training supervision, \method{}+\sar{} reaches 98.06\% accuracy on a 5K subset.
+This result supports the claim that the curriculum learns transferable chart understanding behavior, although a fuller cross-dataset picture still requires the remaining benchmarks.
 
 \subsection{Ablation Study}
 \label{sec:ablation}

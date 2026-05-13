@@ -336,6 +336,20 @@
 - 如果资源和时间紧，先做 `ChartQA + PlotQA + FigureQA`
 - `ChartBench / OpenCQA` 至少补一个
 
+### 当前进展
+
+- `2026-05-12` 已完成 `FigureQA` 上的 `2D-CL + SAR` 子实验，评测脚本为 `scripts/eval_e02_sar.py`
+- 当前采用 `sample_limit=5000`，统计口径为展开后的 `FigureQA` QA pairs
+- 最终结果：
+  - `accuracy`: `98.06%` (`4903 / 5000`)
+  - `elapsed_seconds`: `1705.0`
+  - `stage_usage`: `stage2=80`, `stage3=12`, `stage4=4908`, `stage5=0`
+- 结果目录：`router_runs/e02_figureqa_sar/`
+  - `summary.json`
+  - `predictions.jsonl`
+  - `run.log`
+- 当前 `E02` 可视为“`FigureQA` 子项已完成”，`PlotQA / ChartBench / OpenCQA` 仍待补齐后再形成完整 cross-dataset 表
+
 ---
 
 ## E03 多随机种子实验
@@ -948,7 +962,7 @@
 ### 第 2 批
 
 - `E03`: 只做 `SFT`, `2D-CL`, `2D-CL + SAR` 三组 `3 seeds`
-- `E02`: 先接 `PlotQA`，再补 `FigureQA`
+- `E02`: `FigureQA (5000, SAR)` 已完成，后续补 `PlotQA`
 - `E06`: 先跑 `10% / 50% / 100%`
 
 ### 第 3 批

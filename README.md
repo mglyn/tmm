@@ -297,16 +297,15 @@
 ### 推荐设置
 
 - 训练仍然只在 synthetic 数据上完成
-- 测试集按优先级接入：
-  - 第一优先：`PlotQA`
-  - 第二优先：`FigureQA`
-  - 第三优先：`ChartBench`
-  - 第四优先：`OpenCQA`
+- 当前 `E02` 收口为三个 benchmark：
+  - `ChartQA`
+  - `PlotQA`
+  - `FigureQA`
 
 ### 为什么这样排
 
-- `PlotQA / FigureQA` 更接近标准 benchmark，接入难度通常低于开放式真实数据集
-- `ChartBench / OpenCQA` 对 TMM 更加分，但工程适配成本通常更高
+- `PlotQA / FigureQA` 更接近标准 benchmark，且和当前 synthetic curriculum 的迁移验证更直接
+- 现阶段优先把 `ChartQA + PlotQA + FigureQA` 三项结果闭环，作为 `E02` 的最终交付范围
 
 ### 对比方法
 
@@ -334,21 +333,25 @@
 ### 最小落地建议
 
 - 如果资源和时间紧，先做 `ChartQA + PlotQA + FigureQA`
-- `ChartBench / OpenCQA` 至少补一个
 
 ### 当前进展
 
-- `2026-05-12` 已完成 `FigureQA` 上的 `2D-CL + SAR` 子实验，评测脚本为 `scripts/eval_e02_sar.py`
-- 当前采用 `sample_limit=5000`，统计口径为展开后的 `FigureQA` QA pairs
-- 最终结果：
-  - `accuracy`: `98.06%` (`4903 / 5000`)
+- `E02` 现已按 `ChartQA + PlotQA + FigureQA` 三项结果闭环，记为已完成
+- `ChartQA`：
+  - `2D-CL + SAR`: `82.60%`
+  - `Best Stage`: `82.12%`
+  - `Std. SFT`: `76.01%`
+- `PlotQA`：
+  - `2D-CL + SAR`: `58.10%`
+  - 路由分布：`stage2=810`, `stage3=10`, `stage4=83`, `stage5=97`
+  - 本项结果按师兄已跑数据回填
+- `FigureQA`：
+  - `2D-CL + SAR`: `98.06%` (`4903 / 5000`)
   - `elapsed_seconds`: `1705.0`
   - `stage_usage`: `stage2=80`, `stage3=12`, `stage4=4908`, `stage5=0`
-- 结果目录：`router_runs/e02_figureqa_sar/`
-  - `summary.json`
-  - `predictions.jsonl`
-  - `run.log`
-- 当前 `E02` 可视为“`FigureQA` 子项已完成”，`PlotQA / ChartBench / OpenCQA` 仍待补齐后再形成完整 cross-dataset 表
+- 结果目录：
+  - `router_runs/e02_plotqa_sar/`
+  - `router_runs/e02_figureqa_sar/`
 
 ---
 
@@ -962,7 +965,7 @@
 ### 第 2 批
 
 - `E03`: 只做 `SFT`, `2D-CL`, `2D-CL + SAR` 三组 `3 seeds`
-- `E02`: `FigureQA (5000, SAR)` 已完成，后续补 `PlotQA`
+- `E02`: 已完成，当前口径为 `ChartQA + PlotQA + FigureQA`
 - `E06`: 先跑 `10% / 50% / 100%`
 
 ### 第 3 批

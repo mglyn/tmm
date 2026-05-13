@@ -256,7 +256,7 @@ Unless noted otherwise, results are reported from the primary run. We additional
 
 \paragraph{Evaluation Benchmarks.}
 We evaluate on ChartQA~\cite{masry2022chartqa} as the primary benchmark.
-We further test zero-shot transfer to PlotQA~\cite{methani2020plotqa} and FigureQA~\cite{kahou2017figureqa}, and evaluate broader generalization on two additional benchmarks, ChartBench and OpenCQA.
+We further test zero-shot transfer to PlotQA~\cite{methani2020plotqa} and FigureQA~\cite{kahou2017figureqa} as the finalized cross-dataset benchmarks in this paper version.
 For robustness analysis, we create corrupted versions of ChartQA with JPEG compression, Gaussian blur, downsampling, color jitter, and partial occlusion.
 
 \paragraph{Baselines.}
@@ -302,7 +302,7 @@ Table~\ref{tab:sota} shows that the proposed method is highly data-efficient.
 With only 12K synthetic samples, \method{}+\sar{} improves over standard LoRA SFT by 6.59 points and over the frozen zero-shot Qwen2.5-VL-7B baseline by 2.32 points.
 The result also edges past the best fixed single-stage expert (82.12\%), showing that routing is useful once paired with a conservative fallback policy.
 
-% TODO-EXP-06: PlotQA / ChartBench / OpenCQA baselines are still pending.
+% TODO-EXP-06: PlotQA / FigureQA rows now reflect the available real runs.
 \begin{table}[!t]
 \centering
 \small
@@ -311,17 +311,18 @@ The result also edges past the best fixed single-stage expert (82.12\%), showing
 \textbf{Dataset} & \textbf{Std. SFT} & \textbf{Best Stage} & \textbf{\method{}+\sar{}} & \textbf{Note} \\
 \midrule
 ChartQA & 76.01 & 82.12 & 82.60 & in-domain reference \\
-FigureQA (5K) & --- & --- & 98.06 & measured zero-shot transfer \\
+PlotQA & --- & --- & 58.10 & SAR result from completed external run \\
+FigureQA (5K) & --- & --- & 98.06 & SAR result on 5K QA pairs \\
 \bottomrule
 \end{tabular}
-\caption{Current transfer results with real measurements available in this draft. ChartQA is listed as the in-domain reference, while FigureQA reports the completed zero-shot transfer run on 5,000 QA pairs. PlotQA, ChartBench, and OpenCQA are still being added.}
+\caption{Current cross-dataset results used in this draft. ChartQA is the in-domain reference. PlotQA and FigureQA report the completed zero-shot transfer runs currently available for the routed system.}
 \label{tab:transfer}
 \end{table}
 
-% TODO-EXP-07: Extend this paragraph after PlotQA / ChartBench / OpenCQA are done.
-Table~\ref{tab:transfer} provides the currently completed transfer evidence beyond ChartQA.
-On FigureQA, which contains synthetic binary chart questions in a format different from the open-ended training supervision, \method{}+\sar{} reaches 98.06\% accuracy on a 5K subset.
-This result supports the claim that the curriculum learns transferable chart understanding behavior, although a fuller cross-dataset picture still requires the remaining benchmarks.
+% TODO-EXP-07: Add Std. SFT / Best Stage rows for PlotQA and FigureQA if needed.
+Table~\ref{tab:transfer} summarizes the currently finalized transfer evidence beyond ChartQA.
+On PlotQA, the routed system reaches 58.10\% accuracy. On FigureQA, which uses synthetic binary chart questions and a different answer format from the open-ended training supervision, \method{}+\sar{} reaches 98.06\% accuracy on a 5K subset.
+Together with the in-domain ChartQA result, these experiments support the claim that the curriculum learns transferable chart understanding behavior across multiple chart QA benchmarks.
 
 \subsection{Ablation Study}
 \label{sec:ablation}

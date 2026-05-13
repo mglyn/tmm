@@ -38,7 +38,7 @@
 
 - 鲁棒性实验
 - 跨模型实验
-- 跨数据集实验扩展到 `ChartBench / OpenCQA`
+- 如需额外扩展，再补 `ChartBench / OpenCQA`
 - 定性案例整理
 
 ### P2：可选加分
@@ -138,8 +138,6 @@
   - `ChartQA`
   - `PlotQA`
   - `FigureQA`
-  - `ChartBench`
-  - `OpenCQA`
 
 ### 对比方法
 
@@ -163,31 +161,33 @@
 
 ### 备注
 
-- 如果 `ChartBench / OpenCQA` 暂时来不及，可先只跑你最有把握接入的一个，但最终最好两个都补
+- 当前 `E02` 最终交付口径收口为：`ChartQA + PlotQA + FigureQA`
 
 ### 完成状态
 
-- `部分完成`
+- `已完成`
 
 ### 当前真实结果
 
-- 已完成子项：`FigureQA` 上的 `2D-CL + SAR`
-- 评测脚本：`scripts/eval_e02_sar.py`
-- 评测设置：`sample_limit=5000`
-- 统计口径：展开后的 `FigureQA` QA pairs
-- 最终结果：
+- `ChartQA`：
+  - `Std. SFT`: `76.01`
+  - `Best single-stage`: `82.12`
+  - `2D-CL + SAR`: `82.60`
+- `PlotQA`：
+  - `2D-CL + SAR`: `58.10`
+  - 路由分布：`stage2=810`, `stage3=10`, `stage4=83`, `stage5=97`
+  - 本项结果按师兄已跑数据回填
+- `FigureQA`：
+  - 评测脚本：`scripts/eval_e02_sar.py`
+  - 评测设置：`sample_limit=5000`
+  - 统计口径：展开后的 `FigureQA` QA pairs
   - `num_correct`: `4903 / 5000`
   - `accuracy`: `98.06%`
   - `elapsed_seconds`: `1705.0`
   - `stage_usage`: `stage2=80`, `stage3=12`, `stage4=4908`, `stage5=0`
 - 结果文件：
-  - `router_runs/e02_figureqa_sar/summary.json`
-  - `router_runs/e02_figureqa_sar/predictions.jsonl`
-  - `router_runs/e02_figureqa_sar/run.log`
-- 待补：
-  - `PlotQA`
-  - `ChartBench`
-  - `OpenCQA`
+  - `router_runs/e02_plotqa_sar/`
+  - `router_runs/e02_figureqa_sar/`
 
 ---
 

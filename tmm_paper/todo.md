@@ -234,12 +234,18 @@
 
 ### 完成状态
 
-- `部分完成`
+- `已完成`
 
 ### 当前真实结果
 
-- 当前已完成 `2D-CL + SAR` 的 `3 seeds`
 - 种子列表：`[42, 3407, 2025]`
+- Best single-stage `2D-CL`：`80.24 ± 0.00`
+- 单次结果：
+  - `seed 42`：`80.24`
+  - `seed 3407`：`80.24`
+  - `seed 2025`：`80.24`
+- 汇总文件：
+  - [multiseed_summary.json](file:///root/autodl-tmp/data/router_runs/e03_beststage_multiseed/multiseed_summary.json)
 - `2D-CL + SAR`：`82.61 ± 0.04`
 - 单次结果：
   - `seed 42`：`82.56`
@@ -247,15 +253,12 @@
   - `seed 2025`：`82.64`
 - 汇总文件：
   - [multiseed_summary.json](file:///root/autodl-tmp/data/router_runs/e03_router_multiseed/multiseed_summary.json)
-
-### 当前待补
-
-- Best single-stage `2D-CL` 的 `3 seeds`
+- 当前三 seed 下，`SAR` 相对 best single-stage 提升 `+2.37`
 
 ### 方案 B 口径
 
 - `E03` 当前按精简版执行
-- 仅要求补齐：
+- 已完成：
   - Best single-stage `2D-CL`
   - `2D-CL + SAR`
 - `SFT / 1D-Difficulty / 1D-Task` 不再要求在当前阶段重跑 `3 seeds`

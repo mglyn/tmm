@@ -371,10 +371,7 @@
 
 ### 对比方法
 
-- `SFT`
-- `1D-Diff`
-- `1D-Task`
-- `2D-CL`
+- Best single-stage `2D-CL`
 - `2D-CL + SAR`
 
 ### 结果产出
@@ -382,6 +379,16 @@
 - 每个方法的 `mean ± std`
 - 原始 seed 结果
 - 可选：配对显著性检验
+
+### 当前真实结果
+
+- 当前 `E03` 已按精简版完成，种子列表：`[42, 3407, 2025]`
+- Best single-stage `2D-CL`：`80.24 ± 0.00`
+- `2D-CL + SAR`：`82.61 ± 0.04`
+- 当前三 seed 下，`SAR` 相对 best single-stage 提升 `+2.37`
+- 结果目录：
+  - `router_runs/e03_beststage_multiseed/`
+  - `router_runs/e03_router_multiseed/`
 
 ### 工程实现
 
@@ -391,8 +398,10 @@
 
 ### 计算建议
 
-- 先只对 `SFT / 2D-CL / 2D-CL + SAR` 做 `3 seeds`
-- 若结果已经稳定，再补 `1D-Diff / 1D-Task`
+- 当前 journal 版先固定为：
+  - Best single-stage `2D-CL`
+  - `2D-CL + SAR`
+- `SFT / 1D-Diff / 1D-Task` 暂不扩展到 `3 seeds`
 
 ---
 

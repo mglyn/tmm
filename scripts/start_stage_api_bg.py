@@ -28,6 +28,8 @@ def main() -> None:
     env = os.environ.copy()
     env["API_HOST"] = "0.0.0.0"
     env["API_PORT"] = str(args.port)
+    legacy_src = str(Path(__file__).resolve().parents[1] / "legacy" / "chart_vqa_synthesis_1" / "LLaMA-Factory-main" / "src")
+    env["PYTHONPATH"] = legacy_src if not env.get("PYTHONPATH") else f"{legacy_src}:{env['PYTHONPATH']}"
     # Prefer fully local startup once the base model has been downloaded.
     env.setdefault("HF_HUB_OFFLINE", "1")
     env.setdefault("TRANSFORMERS_OFFLINE", "1")

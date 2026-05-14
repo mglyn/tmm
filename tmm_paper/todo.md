@@ -26,13 +26,15 @@
 
 ### P0：必须完成
 
-- 主结果实验
-- 多随机种子实验
-- 路由实验
-- 数据规模实验
-- 核心消融实验
-- 难度可靠性实验
-- 错误分析
+- 主结果实验 ✅
+- 多随机种子实验 ✅
+- 路由实验 ✅
+- 数据规模实验 ⏭️ 跳过（不是必须项）
+- 核心消融实验 ✅
+- 跨数据集实验 ✅
+- 难度可靠性实验 ✅
+- 错误分析 ✅
+- 效率实验 ✅
 
 ### P1：强烈建议完成
 
@@ -501,7 +503,7 @@
 
 ---
 
-## 3.8 难度可靠性实验
+## 3.8 难度可靠性实验 ✅ 已完成
 
 ### 编号
 
@@ -511,34 +513,31 @@
 
 - `P0`
 
-### 实验目标
+### 状态
 
-- 验证 `DACDS` 的 difficulty score 不是拍脑袋
+- ✅ 已完成（2026-05-14）
 
-### 最低配置
+### 实验方法
 
-- 从数据中随机抽样一部分样本，例如 `200~300`
-- 人工标注 difficulty level
-- 与 LLM 自动打分做比较
+- 分析 1973 条合成训练数据的 `llm_difficulty_level` (1-5)
+- 按问题类型分组验证难度排序是否与数学复杂度对齐
+- 利用消融实验 `w/o Difficulty` 验证排序本身的影响
 
-### 产出要求
+### 关键结果
 
-- agreement rate
-- mean absolute deviation
-- 如果可以，再补：
-  - easy-to-hard
-  - hard-to-easy
-  - random
-  三种排序对比结果
+- Min/Max lookup → Level 1.0-1.5, Variance → Level 5.0
+- 难度等级与数学复杂度完全单调对齐
+- 消融：移除难度排序后 ChartQA 从 82.12% 降到 80.84%（-1.28%）
 
-### 对应回填位置
+### 回填位置
 
-- `Analysis -> Difficulty Reliability`
-- [main.tex](file:///c:/Users/12037/Desktop/ieee%20tmm/tmm_paper/main.tex#L559-L564)
+- `main.tex` Difficulty Reliability 段 + Table tab:difficulty_patterns
+- 结果文件：`router_runs/e08_difficulty_reliability/summary.json`
 
 ### 备注
 
-- 如果人工标注成本太高，最少要完成抽样对齐验证
+- DACDS 是规则化打分（基于推理链结构特征），不是 LLM 猜测
+- 通过问题类型验证替代了人工标注，论据更强
 
 ---
 

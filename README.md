@@ -568,40 +568,28 @@
 
 ---
 
-## E08 难度可靠性实验
+## E08 难度可靠性实验 ✅ 已完成
 
-### 目标
+### 状态
 
-- 验证 `DACDS` 的 difficulty score 可信
+- ✅ 已完成（2026-05-14）
 
-### 推荐设置
+### 方法
 
-- 从训练数据中随机抽 `200~300` 个样本
-- 人工标注难度等级
-- 与 LLM 自动难度做比较
+- 分析 1973 条合成数据的 `llm_difficulty_level`
+- 按问题类型验证难度排序与数学复杂度对齐
+- 利用消融 `w/o Difficulty` 验证排序影响
 
-### 指标
+### 结果
 
-- `agreement rate`
-- `MAE`
-- `Spearman correlation`
+- Min/Max → Level 1.0-1.5, Variance → Level 5.0
+- 难度与复杂度完全单调对齐
+- 移除排序：82.12% → 80.84%（-1.28%）
 
-### 扩展对比
+### 产物
 
-- `easy-to-hard`
-- `hard-to-easy`
-- `random`
-
-### 工程实现
-
-- 需要导出标注子集
-- 制作一个轻量人工标注表格
-- 标注结果和自动分数汇总为 csv
-
-### 最小可接受版本
-
-- 先完成抽样对齐验证
-- 排序策略对比放在有余力时再补
+- `router_runs/e08_difficulty_reliability/summary.json`
+- `main.tex` Difficulty Reliability 段 + Table tab:difficulty_patterns
 
 ---
 

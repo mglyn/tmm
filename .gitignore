@@ -10,3 +10,4 @@ datasets/
 *.py[cod]
 *.pid.json
 *.log
+data/

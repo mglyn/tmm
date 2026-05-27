@@ -5,6 +5,11 @@ param(
     [switch]$ForcePdflatex
 )
 
+$miktexBin = "$env:LOCALAPPDATA\Programs\MiKTeX\miktex\bin\x64"
+$tlperl = "C:\texlive\2025\tlpkg\tlperl\bin"
+if (Test-Path $miktexBin) { $env:Path = "$miktexBin;$env:Path" }
+if (Test-Path $tlperl)   { $env:Path = "$tlperl;$env:Path" }
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 

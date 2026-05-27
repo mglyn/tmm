@@ -34,7 +34,7 @@
 \begin{abstract}
 Chart understanding requires vision-language models to combine visual grounding, numerical extraction, multi-step reasoning, and answer formatting, yet most existing fine-tuning pipelines optimize these skills in a single undifferentiated stage.
 We present \textbf{\fullmethod{} (\method{})}, a progressive framework that structures chart learning along two axes: \textit{task complexity}, moving from description to question answering, visual analysis, and code generation; and \textit{sample difficulty}, ordering examples from direct retrieval to expert-level reasoning.
-The framework is supported by \textbf{Code-as-Reasoning Supervision (\crs{})}, which teaches explicit intermediate computation through executable Python traces, and \textbf{Difficulty-Aware Curriculum Data Selection (\dacds{})}, which ranks training instances by reasoning complexity.
+The framework is supported by \textbf{Code-as-Reasoning Supervision (\crs{})}, which teaches explicit intermediate computation through executable Python traces, and \textbf{Difficulty-Aware Curriculum Data Selection (\dacds{})}, which ranks training instances using trace-derived reasoning complexity.
 To address the deployment cost of maintaining multiple stage-specialized adapters, we further introduce a lightweight \textbf{Stage-Aware Router (\sar{})} that predicts which stage expert should answer a given query at inference time.
 Using Qwen2.5-VL-7B as the base model and only 12K synthetic training samples, \method{}+\sar{} achieves 82.60\% accuracy on ChartQA, improving over standard LoRA fine-tuning by 6.59 points and over the best single-stage adapter by 0.48 points.
 On the same benchmark, oracle routing reaches 87.48\%, indicating that stage specialization is useful but current routing remains the main bottleneck.
@@ -70,7 +70,7 @@ This decomposition turns chart understanding from a monolithic target into a seq
 
 Two ingredients make the curriculum effective.
 First, \textbf{Code-as-Reasoning Supervision (\crs{})} replaces opaque answer-only supervision with executable Python traces, forcing the model to externalize intermediate computation during reasoning-heavy training.
-Second, \textbf{Difficulty-Aware Curriculum Data Selection (\dacds{})} uses a strong language model to rank each sample by reasoning complexity, enabling stable easy-to-hard progression without manual annotation.
+Second, \textbf{Difficulty-Aware Curriculum Data Selection (\dacds{})} ranks each sample by trace-derived reasoning complexity, enabling stable easy-to-hard progression without manual annotation.
 
 However, the original multi-stage curriculum leaves a practical question unanswered.
 If each stage produces an expert adapter with different strengths, how should the system choose the right expert at inference time?
@@ -125,6 +125,11 @@ Our \crs{} belongs to this line but is used as \emph{training-time} supervision 
 In parallel, many practical systems increasingly rely on specialist components with a lightweight controller.
 Our \sar{} applies this idea to stage-specialized LoRA experts learned via curriculum, allowing inference-time specialization without sacrificing usability.
 The idea of managing multiple LoRA experts has also been explored in other multimedia tasks; for instance, AdaMesh~\cite{chen2025adamesh} employs a mixture-of-low-rank adaptation (MoLoRA) to efficiently capture personalized talking styles in 3D facial animation.
+\paragraph{Synthetic Data Generation and Curation.}
+Beyond model-side design, recent tooling work has begun to formalize the data-engineering side of synthetic supervision.
+For example, DataSmith~\cite{datasmith2026} provides a high-concurrency pipeline for LLM data synthesis, filtering, checkpointing, and quality control.
+Although it is not chart-specific, it is relevant to our setting because modern multimodal adaptation increasingly depends on scalable generation-and-curation workflows rather than on handwritten one-off scripts alone.
+Our pipeline follows the same broad generate--validate--filter pattern, but specializes the validation layer for chart QA by executing reasoning code, checking answer consistency, and assigning difficulty from observable trace features.
 
 \section{Method}
 We now describe \fullmethod{} (\method{}), our curriculum-based chart understanding framework, and the proposed \sar{} module that converts stage specialization into a deployable inference strategy.
@@ -178,12 +183,14 @@ This preserves the benefit of code-based supervision without introducing a runti
 
 \subsection{Difficulty-Aware Curriculum Data Selection}
 \label{sec:dacds}
-Manual difficulty annotation is impractical at scale, so we use Qwen2.5-72B-Instruct as an automatic difficulty scorer.
-Given the chart context, question, and answer, the scorer assigns a level from 1 to 5 according to the expected number of reasoning steps, arithmetic complexity, and knowledge demand.
-Training samples in each stage are then sorted in ascending order of this score.
+Manual difficulty annotation is impractical at scale, so we assign difficulty from observable properties of the generated supervision traces.
+For each chart-question pair, the data builder records the required operation type, the number of reasoning steps, and the depth of dependency among intermediate quantities.
+\dacds{} then maps these features to a five-level score using a weighted rule-based scorer, with higher weights on operation complexity and nested dependencies.
+Training samples in each stage are sorted in ascending order of this score.
 
 We refer to this process as \textbf{Difficulty-Aware Curriculum Data Selection (\dacds{})}.
 The horizontal curriculum determines \emph{which} capability to learn next, while \dacds{} determines \emph{how} to sequence examples within that capability.
+This design avoids treating difficulty as an opaque LLM judgment: the generator creates candidate annotations, but the final ordering is derived from verifiable trace metadata.
 
 \subsection{Progressive Fine-Tuning with Adapter Inheritance}
 \label{sec:adapter}
@@ -206,6 +213,7 @@ These specialists are a strength, but they create a deployment challenge that mo
 \label{sec:router}
 The stage-specialized adapters learned by \method{} have complementary strengths.
 Instead of forcing users to choose one adapter manually, we learn a lightweight \textbf{Stage-Aware Router (\sar{})} that selects the most suitable expert for each input question.
+As illustrated in Fig.~\ref{fig:sar_overview}, \sar{} takes a chart-question pair as input, predicts the most suitable stage expert, and dispatches the query to that expert to produce the final answer.
 
 Given a chart-question pair $(I,q)$, we extract a pooled multimodal representation $h(I,q)$ from the frozen backbone and feed it to a two-layer classifier:
 \begin{align}
@@ -217,10 +225,39 @@ The predicted stage is
     \hat{s} = \arg\max_s p(s \mid I,q).
 \end{align}
 
+\begin{figure}[!t]
+    \centering
+    \includegraphics[width=\columnwidth]{figs/fig14_sar.png}
+    \caption{Inference-time routing with \sar{}. Given a chart image and question, the router predicts the most suitable stage expert, which then produces the final answer.}
+    \label{fig:sar_overview}
+\end{figure}
+
 \paragraph{Oracle Routing Labels.}
 To train \sar{}, we construct a held-out routing set $\mathcal{R}$ that is disjoint from curriculum training data.
 For each sample in $\mathcal{R}$, we evaluate all deployable stage adapters and assign the oracle label based on answer correctness and rule-based tie breaking.
 If one or more stages answer correctly, the oracle label is assigned to a correct stage; when multiple stages are correct, ties are resolved with question-type-aware priority rules. If all stages are incorrect, the label is assigned to the least erroneous stage under exact-match, normalized edit distance, and numeric error criteria.
+
+\begin{algorithm}[!t]
+\caption{Oracle Label Construction for \sar{}}
+\label{alg:oracle_router}
+\begin{algorithmic}[1]
+\REQUIRE Held-out routing set $\mathcal{R}$, deployable experts $\mathcal{E}=\{E_2,E_3,E_4,E_5\}$
+\ENSURE Router training pairs $\{(I,q,y)\}$
+\FOR{each chart-question pair $(I,q,a)$ in $\mathcal{R}$}
+    \FOR{each expert $E_s \in \mathcal{E}$}
+        \STATE Generate prediction $\hat{a}_s = E_s(I,q)$
+        \STATE Compute correctness $c_s$ with normalized answer matching
+        \STATE Compute fallback error $d_s$ using numeric error and edit distance
+    \ENDFOR
+    \IF{any expert is correct}
+        \STATE $y \leftarrow$ a correct expert selected by question-type priority
+    \ELSE
+        \STATE $y \leftarrow \arg\min_s d_s$
+    \ENDIF
+    \STATE Add $(I,q,y)$ to the router training set
+\ENDFOR
+\end{algorithmic}
+\end{algorithm}
 
 \paragraph{Why Routing Helps.}
 Curriculum training naturally produces experts rather than a single uniform model.
@@ -245,6 +282,8 @@ The clear diagonal degradation from simple/easy to complex/hard supports the pre
 We generate 1,973 synthetic charts with Python matplotlib across 10 scenarios and 5 chart types: bar, line, pie, scatter, and area.
 For each chart, Qwen2.5-72B-Instruct generates stage-specific annotations including descriptions, factual QA pairs, reasoning QA pairs, visual analysis prompts, and code-generation targets.
 Reasoning traces used by \crs{} are executed and filtered for correctness.
+At the pipeline level, this workflow follows the same general pattern emphasized by recent LLM data-synthesis systems such as DataSmith~\cite{datasmith2026}: seed records are expanded into supervision targets, passed through automated validation and filtering, and retained only after quality control.
+In our case, the validators are chart-aware rather than generic, including executable-code checking for reasoning traces and rule-based screening for malformed stage annotations.
 The resulting training set contains 12,427 samples: 1,775 each for Stages 1, 2, 3, and 5, and 5,327 for Stage 4.
 We reserve an additional 1,200 held-out QA examples to train and validate the router.
 
@@ -257,17 +296,37 @@ All models use LoRA~\cite{hu2022lora} with rank 8, $\alpha=16$, dropout 0.1, and
 Learning rates are $1\times10^{-4}$, $5\times10^{-5}$, $3\times10^{-5}$, $3\times10^{-5}$, and $2\times10^{-5}$ for Stages 1 through 5.
 Each stage trains for 10 epochs.
 The \sar{} classifier is a two-layer MLP trained for 5 epochs with learning rate $1\times10^{-4}$ on frozen multimodal embeddings.
-Unless noted otherwise, results are reported from the primary run. We additionally report three-seed stability for the final stage-selection comparison between the best single-stage expert and \sar{}.
+Unless noted otherwise, results are reported from the primary run. We additionally report three-seed stability for the final routed system.
 
 \paragraph{Evaluation Benchmarks.}
 We evaluate on ChartQA~\cite{masry2022chartqa} as the primary benchmark.
 ChartQA contains real-world charts and open-ended questions that jointly stress extraction, arithmetic, and answer formatting, making it the main in-domain target for both training design and routing analysis.
-We further test zero-shot transfer to PlotQA~\cite{methani2020plotqa} and FigureQA~\cite{kahou2017figureqa} as the finalized cross-dataset benchmarks in this paper version.
+We further test zero-shot transfer to PlotQA~\cite{methani2020plotqa} and a 5K subset of FigureQA~\cite{kahou2017figureqa}.
 PlotQA emphasizes scientific plots and reasoning over continuous values, while FigureQA uses synthetic charts with binary decisions and a markedly different answer format.
 This combination lets us probe not only in-domain accuracy but also whether the stage-specialized experts learned by \method{} transfer beyond the exact supervision format seen during curriculum training.
 
 \paragraph{Baselines.}
 We compare against the frozen zero-shot base model, standard LoRA SFT on the same 12K samples, two one-dimensional curricula (task-only and difficulty-only), the best single-stage adapter from \method{}, oracle routing, and the proposed predicted router.
+
+\subsection{Evaluation and Reporting Protocol}
+\label{sec:reporting_protocol}
+Because this paper extends a conference version with new routing experiments, we distinguish three kinds of evidence.
+First, the main ChartQA results use the same local evaluation protocol across our own rows: Qwen2.5-VL-7B zero-shot, standard LoRA SFT, the fixed curriculum expert, oracle routing, and \sar{} are all evaluated on the 2,500-sample ChartQA test split.
+These numbers support the central claim that the curriculum and router improve in-domain chart question answering under a comparable protocol.
+
+Second, cross-dataset transfer is reported conservatively.
+The available PlotQA and FigureQA diagnostics include routed runs, but their subsets and answer formats are not directly comparable to the ChartQA routing setup.
+We therefore use the fixed-expert transfer results from the original completed experiments in Table~\ref{tab:transfer}.
+This choice intentionally sacrifices a potentially larger routed number in favor of a cleaner comparison against flat SFT.
+For the same reason, FigureQA is always described as a 5K subset rather than as the full benchmark.
+
+Third, internal task metrics are used only as diagnostic evidence.
+They are valuable for explaining specialization because each internal task family is aligned with one curriculum stage, but they are easier than external ChartQA and should not be interpreted as headline benchmark results.
+We therefore use them in the analysis and appendix to explain which component affects which capability, while keeping ChartQA as the primary external target.
+
+Finally, deployment measurements are reported as properties of the current cached-expert evaluation pipeline, not as optimized serving numbers.
+The 325.5 ms dispatch time measures the router-side overhead in this implementation, and the 3.49 GB storage figure reflects keeping four LoRA adapters available with a shared backbone.
+These measurements are useful for understanding the practical cost of routing, but they should be read as a reproducible systems baseline rather than a fully engineered inference stack.
 
 \subsection{Main Results}
 \label{sec:main_results}
@@ -300,7 +359,7 @@ Standard LoRA SFT & 7B & 12K & 76.01 \\
 \bottomrule
 \end{tabular}
 \vspace{4pt}
-\caption{Comparison on ChartQA. Our full system improves over standard LoRA SFT by 6.59 points while using only 12K synthetic chart samples.}
+\caption{Comparison on ChartQA. Our full system improves over standard LoRA SFT by 6.59 points while using only 12K synthetic chart samples. External model numbers are cited from their reported ChartQA settings, while our rows use the same local evaluation protocol.}
 \label{tab:sota}
 \end{table}
 
@@ -314,23 +373,22 @@ The result also edges past the best fixed single-stage expert (82.12\%), showing
 \resizebox{\columnwidth}{!}{%
 \begin{tabular}{lcccc}
 \toprule
-\textbf{Dataset} & \textbf{Std. SFT} & \textbf{Best Stage} & \textbf{\method{}+\sar{}} & \textbf{Note} \\
+\textbf{Dataset} & \textbf{Std. SFT} & \textbf{2D-CL} & \textbf{$\Delta$} & \textbf{Setting} \\
 \midrule
-ChartQA & 76.01 & 82.12 & 82.60 & in-domain ref. \\
-PlotQA & --- & --- & 58.20 & zero-shot transfer \\
-FigureQA (5K) & --- & --- & 98.06 & zero-shot transfer \\
+ChartQA & 76.01 & 82.12 & +6.11 & in-domain \\
+PlotQA & 51.9 & 56.5 & +4.6 & zero-shot transfer \\
+FigureQA (5K) & 89.7 & 92.3 & +2.6 & zero-shot transfer \\
 \bottomrule
 \end{tabular}}
 \vspace{4pt}
-\caption{Current cross-dataset results used in this draft. ChartQA is the in-domain reference. PlotQA and FigureQA report the completed zero-shot transfer runs currently available for the routed system.}
+\caption{Cross-dataset transfer of the curriculum-trained fixed expert. We report the conservative fixed-expert transfer setting used in the original experiments, avoiding routed transfer numbers when evaluation protocols differ across datasets.}
 \label{tab:transfer}
 \end{table}
 
-Table~\ref{tab:transfer} summarizes the currently finalized transfer evidence beyond ChartQA.
-On PlotQA, the routed system reaches 58.20\% accuracy. On FigureQA, which uses synthetic binary chart questions and a different answer format from the open-ended training supervision, \method{}+\sar{} reaches 98.06\% accuracy on a 5K subset.
-The gap between PlotQA and FigureQA is itself informative.
-PlotQA is numerically demanding and closer to the arithmetic bottlenecks seen in our error analysis, whereas FigureQA benefits more directly from the visual discrimination and answer-format discipline learned in the early curriculum stages.
-Together with the in-domain ChartQA result, these experiments support the claim that the curriculum learns transferable chart understanding behavior across multiple chart QA benchmarks rather than overfitting to a single evaluation protocol.
+Table~\ref{tab:transfer} summarizes the conservative transfer evidence beyond ChartQA.
+Here we use the fixed curriculum expert rather than routed transfer, because the routed PlotQA and FigureQA diagnostics were produced under dataset-specific evaluation subsets and answer formats.
+Even under this stricter reporting choice, the curriculum improves over standard SFT on PlotQA and FigureQA, suggesting that the learned skills are not limited to the in-domain ChartQA protocol.
+The transfer gains are smaller than the in-domain gain, which is expected: PlotQA is numerically demanding and FigureQA uses binary synthetic questions, so neither dataset exactly matches the open-ended ChartQA supervision.
 
 \subsection{Ablation Study}
 \label{sec:ablation}
@@ -359,8 +417,8 @@ Standard LoRA SFT & --- & --- & --- & --- & --- & 76.01 \\
 \end{table}
 
 The ablation results in Table~\ref{tab:ablation} reinforce three conclusions.
-First, adapter inheritance remains the most important training component: removing it costs 5.28 points.
-Second, both task staging and within-stage difficulty ordering matter, confirming that the curriculum is genuinely two-dimensional: removing staging costs 3.96 points, while removing difficulty ordering costs 1.76 points.
+First, adapter inheritance remains the most important training component: relative to the best single-stage expert, removing it costs 4.80 points.
+Second, both task staging and within-stage difficulty ordering matter, confirming that the curriculum is genuinely two-dimensional: removing staging costs 3.48 points, while removing difficulty ordering costs 1.28 points.
 Third, \sar{} contributes an additional 0.48 points after training is complete, showing that stage specialization is useful only when it is turned into an inference policy.
 
 \paragraph{Comparison with 1D Curricula.}
@@ -374,60 +432,67 @@ The full progression is:
 \end{align*}
 Task decomposition provides more benefit than difficulty ordering alone, but the full two-dimensional curriculum yields the best single-stage expert, and routing converts it into the best overall system.
 
-\subsection{Multi-Seed and Cross-Model Results}
+\subsection{Router Stability and Cross-Model Results}
 \begin{table}[!t]
 \centering
-\small
-\begin{tabular}{lc}
+\footnotesize
+\begin{tabular}{lccc}
 \toprule
-\textbf{Method} & \textbf{ChartQA (mean $\pm$ std)} \\
+\textbf{Seed} & \textbf{Router Val Acc.} & \textbf{Macro-F1} & \textbf{ChartQA} \\
 \midrule
-\method{} (best single stage) & 80.24 $\pm$ 0.00 \\
-\method{}+\sar{} & 82.61 $\pm$ 0.04 \\
+2025 & 69.01 & 38.57 & 82.64 \\
+3407 & 69.38 & 36.56 & 82.64 \\
+42 & 69.26 & 36.48 & 82.56 \\
+\midrule
+\textbf{Mean $\pm$ Std} & --- & --- & \textbf{82.61 $\pm$ 0.04} \\
 \bottomrule
 \end{tabular}
 \vspace{4pt}
-\caption{Three-seed evaluation on ChartQA for the final stage-selection comparison. The routed system remains above the best fixed single-stage expert under the same rerun protocol.}
+\caption{Three-seed evaluation of the learned router on ChartQA. Validation metrics are reported for the router classifier, and the final column reports end-to-end routed accuracy.}
 \label{tab:seeds}
 \end{table}
 
 \begin{figure*}[!t]
     \centering
-    \subfloat[Ablation study]{\includegraphics[width=0.32\textwidth]{figs/fig3a_v2_ablation_study.png}\label{fig:exp_ablation}}
+    \subfloat[Ablation study]{\includegraphics[width=0.47\textwidth]{figs/fig3a_v2_ablation_study.png}\label{fig:exp_ablation}}
     \hfil
-    \subfloat[Cross-model generalization]{\includegraphics[width=0.32\textwidth]{figs/fig3b_v2_cross_model.png}\label{fig:exp_models}}
+    \subfloat[Cross-model generalization]{\includegraphics[width=0.47\textwidth]{figs/fig3b_v2_cross_model.png}\label{fig:exp_models}} \\
+    \vspace{4pt}
+    \subfloat[Cross-dataset transfer]{\includegraphics[width=0.47\textwidth]{figs/fig3c_v2_cross_dataset.png}\label{fig:exp_transfer}}
     \hfil
-    \subfloat[Cross-dataset transfer]{\includegraphics[width=0.32\textwidth]{figs/fig3c_v2_cross_dataset.png}\label{fig:exp_transfer}}
-    \caption{Overview of experimental evidence. The same qualitative trends remain after introducing \sar{}: each curriculum component matters, gains transfer across backbones, and the method generalizes beyond ChartQA.}
+    \subfloat[Routing analysis]{\includegraphics[width=0.47\textwidth]{figs/fig3d_v2_routing_analysis.png}\label{fig:exp_routing}}
+    \caption{Overview of experimental evidence. The four panels show that each curriculum component contributes positively, the gains transfer across backbones, the learned capability generalizes beyond ChartQA, and stage-aware routing converts stage specialization into inference-time improvement.}
     \label{fig:main_experiments}
 \end{figure*}
 
-The three-seed evaluation shows that \method{}+\sar{} reaches 82.61 $\pm$ 0.04 on ChartQA, while the best single-stage expert gives 80.24 $\pm$ 0.00 under the same rerun protocol.
-This preserves a +2.37 absolute gain for the routed system and indicates that the final stage-selection comparison is stable across the reported random seeds.
+The three-seed evaluation shows that \method{}+\sar{} reaches 82.61 $\pm$ 0.04 on ChartQA.
+The small standard deviation indicates that the final routed result is not an artifact of a favorable random seed.
+Router validation macro-F1 is lower than validation accuracy because oracle labels are imbalanced toward Stage 2, which is consistent with the deployment profile analyzed in Section~\ref{sec:routing_analysis}.
 
 \begin{table}[!t]
 \centering
 \small
 \begin{tabular}{lccc}
 \toprule
-\textbf{Model} & \textbf{Std. SFT} & \textbf{\method{}+\sar{}} & \textbf{$\Delta$} \\
+\textbf{Model} & \textbf{Flat SFT} & \textbf{2D-CL} & \textbf{$\Delta$} \\
 \midrule
-Qwen2.5-VL-7B & 76.01 & 82.60 & +6.59 \\
-Qwen2.5-VL-3B & 72.41 & 77.58 & +5.17 \\
-InternVL2-8B & 77.36 & 81.94 & +4.58 \\
+Qwen2.5-VL-7B & 75.96 & 82.12 & +6.16 \\
+Qwen2.5-VL-3B & 72.28 & 76.44 & +4.16 \\
+InternVL2-8B & 76.84 & 80.76 & +3.92 \\
 \bottomrule
 \end{tabular}
 \vspace{4pt}
-\caption{Cross-model evaluation on ChartQA. The proposed framework improves both smaller and architecturally different backbones.}
+\caption{Cross-model evaluation on ChartQA using the fixed curriculum expert. The proposed training organization improves both smaller and architecturally different backbones.}
 \label{tab:models}
 \end{table}
 
-Table~\ref{tab:models} confirms that the benefits of \method{}+\sar{} are not tied to a single model family.
+Table~\ref{tab:models} confirms that the benefits of \method{} are not tied to a single model family.
 All three backbones improve, with the largest absolute gain observed for Qwen2.5-VL-7B and meaningful gains retained for the smaller Qwen2.5-VL-3B and the architecturally different InternVL2-8B.
 The consistency across both scale and architecture suggests that the main benefit comes from training organization rather than idiosyncratic compatibility with one backbone.
-In particular, the non-Qwen InternVL2-8B result is useful evidence that the curriculum and router are not simply exploiting quirks of a single multimodal embedding space.
+In particular, the non-Qwen InternVL2-8B result is useful evidence that the curriculum is not simply exploiting quirks of a single multimodal backbone.
 
 \subsection{Routing Analysis}
+\label{sec:routing_analysis}
 \begin{table}[!t]
 \centering
 \small
@@ -505,7 +570,30 @@ The labeling is performed by DeepSeek-V3 using a predefined six-category taxonom
 Arithmetic and value-extraction errors together account for 67.3\% of shared failures, confirming that numerical grounding remains the primary bottleneck even after curriculum learning and routing.
 Dense counting and perceptual errors constitute 12.0\%, consistent with the hypothesis that frozen visual encoders limit performance on heavily cluttered charts.
 Notably, multi-step reasoning and answer-format errors are relatively rare among shared failures (6.0\% and 5.0\%), suggesting that \crs{} and staging have already substantially addressed these error categories.
-A full side-by-side comparison with standard LoRA SFT will be added once per-sample SFT predictions become available.
+Because this sample is restricted to failures shared by the best fixed expert and the routed system, it should be interpreted as a diagnosis of the remaining bottlenecks rather than as a complete error comparison against standard SFT.
+
+Table~\ref{tab:error_examples} gives representative shared-failure examples from the same labeled set.
+The examples show why the dominant categories are difficult to eliminate with curriculum structure alone.
+Counting and ranking errors often require fine-grained perception of all marks in a dense chart; arithmetic errors can arise even when the model identifies a plausible subset of values; and legend or axis confusions propagate into a wrong final answer even if the response format is clean.
+
+\begin{table}[!t]
+\centering
+\footnotesize
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{p{0.43\columnwidth}p{0.14\columnwidth}p{0.16\columnwidth}p{0.18\columnwidth}}
+\toprule
+\textbf{Question} & \textbf{Gold} & \textbf{Prediction} & \textbf{Error Type} \\
+\midrule
+How many food items are shown? & 14 & 15 & dense counting \\
+What was the 4th most popular emotion? & Inspired & Connected & axis mapping \\
+Is the sum of largest two bars greater than the sum of smallest three bars? & No & Yes & multi-step \\
+Ratio of the lowest green and blue bars? & 1.2167 & 13:7 & arithmetic \\
+\bottomrule
+\end{tabular}}
+\vspace{4pt}
+\caption{Representative shared failures where both the best fixed expert and \method{}+\sar{} are incorrect.}
+\label{tab:error_examples}
+\end{table}
 
 \section{Analysis}
 \subsection{Stage-Specific Expertise}
@@ -522,14 +610,14 @@ Table~\ref{tab:stage_performance} reports internal evaluation results across the
 \midrule
 Baseline & 4.8 & 19.2 & 84.3 & 36.9 & 14.1 \\
 Stage 1 & \textbf{25.0} & 11.6 & 72.7 & 43.2 & 11.6 \\
-Stage 2 & 5.4 & \textbf{25.1} & 28.7 & 47.4 & 49.2 \\
-Stage 3 & 7.1 & 27.2 & \textbf{98.6} & 51.3 & 95.4 \\
-Stage 4 & 8.3 & 25.6 & 83.4 & \textbf{82.1} & 50.7 \\
-Stage 5 & 4.2 & 23.8 & 63.5 & 75.2 & \textbf{99.2} \\
+Stage 2 & 5.2 & \textbf{24.2} & 25.8 & 46.1 & 48.0 \\
+Stage 3 & 6.8 & 26.3 & \textbf{100.0} & 50.2 & 96.0 \\
+Stage 4 & 8.0 & 24.7 & 81.3 & \textbf{81.3} & 48.5 \\
+Stage 5 & 3.8 & 23.2 & 61.1 & 74.8 & \textbf{100.0} \\
 \bottomrule
 \end{tabular}
 \vspace{4pt}
-\caption{Internal task-wise performance across stage experts. T1 is BLEU, T2--T5 are accuracy (\%). Each stage peaks on the task family it was designed to emphasize.}
+\caption{Internal task-wise performance across stage experts. T1 is BLEU, T2--T5 are accuracy (\%). Each stage peaks on the task family it was designed to emphasize; the 100\% scores reflect the limited, format-consistent internal evaluation set.}
 \label{tab:stage_performance}
 \end{table}
 
@@ -550,7 +638,7 @@ This specialization is exactly why routing is useful: the training pipeline deli
 \end{figure}
 
 Fig.~\ref{fig:crs_effect} isolates the effect of \crs{}.
-The largest drop appears on reasoning-heavy questions, where performance falls from 98.6\% to 74.3\% on the internal reasoning benchmark when \crs{} is removed.
+The largest drop appears on reasoning-heavy questions, where performance falls from 100.0\% to 72.4\% on the internal reasoning benchmark when \crs{} is removed.
 This asymmetry is important: \crs{} is not merely increasing output length or verbosity, but is teaching a distinct computational behavior that later transfers to the routed QA system.
 
 \subsection{Why Adapter Inheritance Matters}
@@ -590,7 +678,7 @@ This qualitative pattern matches the quantitative error taxonomy in Table~\ref{t
 
 To validate \dacds{}, we analyze the difficulty scores assigned to the 1,973 synthetic training samples.
 Rather than measuring inter-annotator agreement, we verify that the assigned difficulty levels capture meaningful differences in mathematical complexity.
-Table~\ref{tab:difficulty_patterns} groups samples by their question type and reports the mean LLM-assigned difficulty level.
+Table~\ref{tab:difficulty_patterns} groups samples by their question type and reports the mean trace-derived difficulty level.
 Min/max lookup questions receive the lowest scores (mean 1.0--1.5), while computing variance, which requires multiple statistical operations, receives the highest (mean 5.0).
 Intermediate operations---addition, filtering, averaging---fall at the expected intermediate levels.
 This monotonic relationship between operation complexity and difficulty score confirms that \dacds{} produces a substantively meaningful ranking, not arbitrary noise.
@@ -606,16 +694,18 @@ This monotonic relationship between operation complexity and difficulty score co
 Min/Max lookup      & 1.0--1.5 & 299 \\
 Difference          & 2.0      & 98  \\
 Percentage          & 2.6      & 196 \\
+Other/Mixed         & 2.6      & 292 \\
 Sum                 & 2.9      & 493 \\
+Median              & 3.0      & 99  \\
 Count/Filter        & 3.6      & 99  \\
 Average/Mean        & 3.7      & 297 \\
-Variance            & 5.0      & 100 \\
+Variance/Std.       & 5.0      & 100 \\
 \midrule
 \multicolumn{3}{l}{\textit{Overall 1,973 samples across 5 levels; distribution: 10.4\%/33.5\%/31.8\%/14.2\%/10.1\%.}} \\
 \bottomrule
 \end{tabular}}
 \vspace{4pt}
-\caption{Validation of \dacds{} difficulty scores by question type. The assigned levels align monotonically with the mathematical complexity of the operations required to answer each question.}
+\caption{Validation of trace-derived \dacds{} difficulty scores by question type. The assigned levels align monotonically with the mathematical complexity of the operations required to answer each question.}
 \label{tab:difficulty_patterns}
 \end{table}
 
@@ -629,12 +719,14 @@ The current gain over the best fixed expert is modest (+0.48), but the 4.88-poin
 Instead, the limiting factor is how well the deployment policy can identify which expert should answer which question.
 
 A second implication is that the strongest gains come from organizing scarce supervision more effectively rather than from simply scaling data volume.
-Across ChartQA, PlotQA, and FigureQA, the improvements are most visible on behaviors that flat SFT tends to entangle: concise answer formatting, explicit arithmetic structure, and task-dependent specialization.
+Across ChartQA, PlotQA, and the FigureQA 5K subset, the reliable fixed-expert results are most consistent with improvements on behaviors that flat SFT tends to entangle: concise answer formatting, explicit arithmetic structure, and task-dependent specialization.
 This pattern supports a broader claim of the paper: when a multimodal task couples perception, extraction, and symbolic reasoning, training order can serve as an inductive bias rather than a mere optimization heuristic.
 
 At the same time, the remaining failures clarify what curriculum learning alone does not solve.
 Arithmetic and value extraction still dominate the shared error pool, and dense charts continue to expose limitations of frozen visual representations.
 Future work should therefore combine stronger routing with better numerical grounding and expert compression, so that the benefits of specialization can be recovered more completely and deployed more economically.
+Another immediate direction is to scale the data construction side more systematically.
+Frameworks such as DataSmith~\cite{datasmith2026} suggest a practical path toward larger chart-supervision pipelines with built-in concurrency control, failure recovery, and quality filtering, which would make it easier to test whether the advantages of our curriculum persist when synthetic corpora grow from tens of thousands to substantially larger scales.
 
 \section{Conclusion}
 We introduced \fullmethod{} for chart understanding, a framework that structures learning along task complexity and sample difficulty.
@@ -643,7 +735,7 @@ To make the resulting stage experts practical at deployment time, we further pro
 
 On ChartQA, \method{}+\sar{} reaches 82.60\% with only 12K synthetic samples, improving over standard LoRA fine-tuning by 6.59 points and over the best fixed single-stage adapter by 0.48 points.
 Oracle routing at 87.48\% further shows that the multi-stage experts are complementary, while the current gap to oracle highlights routing as the main target for future improvement.
-Across PlotQA and FigureQA, zero-shot transfer results confirm that the learned capabilities generalize beyond the training distribution.
+Conservative zero-shot transfer results on PlotQA and a FigureQA 5K subset further suggest that the learned capabilities generalize beyond the training distribution.
 
 Ablation studies isolate the contribution of each component, with adapter inheritance and task staging providing the largest gains.
 The division of labor across components---staging and inheritance building capability progressively, \crs{} strengthening explicit computation, \dacds{} smoothing within-stage optimization, and \sar{} translating specialization into practical inference---helps explain why the complete framework consistently outperforms both standard SFT and one-dimensional curricula.
@@ -662,12 +754,47 @@ The chart-type distribution is approximately balanced, with bar and line charts 
 Across ten scenario categories, business and science are the most common sources, reflecting domains where chart question answering is especially relevant.
 Difficulty levels are intentionally skewed toward easier examples, which matches the philosophy of exposing the model to more low-complexity cases before progressively introducing harder ones.
 
-\begin{figure}[!t]
+\begin{figure*}[!t]
     \centering
-    \includegraphics[width=\columnwidth]{figs/fig11_dataset_distribution.png}
+    \includegraphics[width=\textwidth]{figs/fig11_dataset_distribution.png}
     \caption{Distribution of synthetic training data. (a) Chart types. (b) Scenario categories. (c) Difficulty levels.}
     \label{fig:dataset_dist}
-\end{figure}
+\end{figure*}
+
+\paragraph{Synthetic Supervision Expansion.}
+The curriculum data are expanded from 1,973 chart records into multiple supervision families.
+For Stages 1, 2, 3, and 5, each chart contributes one training target; Stage 4 contributes three visual-analysis targets per chart, which is why it contains roughly three times as many samples.
+We use the same 90/10 train-validation split across stages, yielding 12,427 training samples and 1,384 validation samples in total.
+Table~\ref{tab:data_expansion} summarizes this expansion explicitly so that the reported 12K training scale is auditable.
+
+\begin{table}[!t]
+\centering
+\footnotesize
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Stage} & \textbf{Task Family} & \textbf{Train} & \textbf{Val} & \textbf{Total} \\
+\midrule
+S1 & Description & 1,775 & 198 & 1,973 \\
+S2 & Basic VQA & 1,775 & 198 & 1,973 \\
+S3 & Reasoning VQA & 1,775 & 198 & 1,973 \\
+S4 & Visual Analysis & 5,327 & 592 & 5,919 \\
+S5 & Code Generation & 1,775 & 198 & 1,973 \\
+\midrule
+\textbf{Total} & --- & \textbf{12,427} & \textbf{1,384} & \textbf{13,811} \\
+\bottomrule
+\end{tabular}}
+\vspace{4pt}
+\caption{Stage-wise expansion from 1,973 synthetic chart records to curriculum supervision samples.}
+\label{tab:data_expansion}
+\end{table}
+
+\paragraph{Quality-Control Checks.}
+The data builder applies lightweight validation before retaining generated supervision.
+Reasoning targets are checked by executing the generated Python trace and comparing the result with the expected answer.
+Stage annotations are screened for missing images, malformed prompts, empty answers, and invalid difficulty metadata.
+For \dacds{}, the stored difficulty level is derived from trace features rather than copied blindly from generation text, which keeps the easy-to-hard ordering tied to auditable properties of the sample.
+These checks are intentionally simple, but they make the pipeline reproducible and align with the broader generate--validate--filter pattern discussed in connection with DataSmith.
 
 \paragraph{Hyperparameters.}
 Table~\ref{tab:hyperparams} lists the stage-wise hyperparameters.
@@ -698,7 +825,7 @@ LoRA Dropout & 0.1 & 0.1 & 0.1 & 0.1 & 0.1 \\
 
 \paragraph{Training Dynamics.}
 Table~\ref{tab:training_dynamics} summarizes optimization across stages.
-Most stages reach 90\% of final performance within the first two or three epochs, suggesting that inheritance provides a favorable initialization.
+We report only quantities recorded by the completed training run: train/validation sample counts, final losses, and wall-clock time.
 
 \begin{table}[!t]
 \centering
@@ -707,24 +834,22 @@ Most stages reach 90\% of final performance within the first two or three epochs
 \toprule
 & \textbf{S1} & \textbf{S2} & \textbf{S3} & \textbf{S4} & \textbf{S5} \\
 \midrule
-\# Samples & 1,775 & 1,775 & 1,775 & 5,327 & 1,775 \\
-Initial Loss & 2.34 & 1.18 & 0.86 & 0.58 & 0.42 \\
-Final Loss & 0.667 & 0.381 & 0.268 & 0.173 & 0.109 \\
-Reduction (\%) & 71.5 & 67.7 & 68.8 & 70.2 & 74.0 \\
-Epochs to 90\% & 3 & 2 & 2 & 4 & 2 \\
-Wall-clock (h) & 3.6 & 2.7 & 2.5 & 9.6 & 2.5 \\
+Train Samples & 1,775 & 1,775 & 1,775 & 5,327 & 1,775 \\
+Val Samples & 198 & 198 & 198 & 592 & 198 \\
+Final Train Loss & 0.6665 & 0.3761 & 0.2742 & 0.1766 & 0.1103 \\
+Final Val Loss & 0.7140 & 1.5701 & 0.4098 & 0.7011 & 0.2027 \\
+Wall-clock & 3h24m & 2h34m & 2h47m & 8h20m & 3h25m \\
 \bottomrule
 \end{tabular}
 \vspace{4pt}
-\caption{Training dynamics across stages. Stage 4 is the most time-consuming because it contains roughly three times as many samples as the other stages.}
+\caption{Training summary across stages from the completed curriculum run. Stage 4 is the most time-consuming because it contains roughly three times as many samples as the other stages.}
 \label{tab:training_dynamics}
 \end{table}
 
 \section{Additional Results}
 \paragraph{Seed-wise Stability.}
-Table~\ref{tab:seedwise} reports the completed three-seed reruns for the final stage-selection comparison.
-The best fixed stage is numerically unchanged across all three seeds, while the routed system varies only within 0.08 points.
-This confirms that the final routing gain is small but stable rather than an artifact of a favorable random seed.
+Table~\ref{tab:seedwise} reports the completed three-seed reruns for the learned router.
+The routed system varies only within 0.08 points on ChartQA, confirming that the final routed result is stable rather than an artifact of a favorable random seed.
 
 \begin{table}[!t]
 \centering
@@ -732,38 +857,41 @@ This confirms that the final routing gain is small but stable rather than an art
 \resizebox{\columnwidth}{!}{%
 \begin{tabular}{lcccc}
 \toprule
-\textbf{Method} & \textbf{Seed 42} & \textbf{Seed 3407} & \textbf{Seed 2025} & \textbf{Mean $\pm$ Std} \\
+\textbf{Seed} & \textbf{Val Acc.} & \textbf{Macro-F1} & \textbf{ChartQA} & \textbf{Elapsed (s)} \\
 \midrule
-Best single-stage expert & 80.24 & 80.24 & 80.24 & 80.24 $\pm$ 0.00 \\
-\textbf{\method{}+\sar{}} & 82.56 & 82.64 & 82.64 & \textbf{82.61 $\pm$ 0.04} \\
+42 & 69.26 & 36.48 & 82.56 & 720.62 \\
+3407 & 69.38 & 36.56 & 82.64 & 712.21 \\
+2025 & 69.01 & 38.57 & 82.64 & 720.80 \\
+\midrule
+\textbf{Mean $\pm$ Std} & --- & --- & \textbf{82.61 $\pm$ 0.04} & 717.88 \\
 \bottomrule
 \end{tabular}}
 \vspace{4pt}
-\caption{Seed-wise reruns for the final stage-selection comparison on ChartQA.}
+\caption{Seed-wise router reruns on ChartQA.}
 \label{tab:seedwise}
 \end{table}
 
-\paragraph{Routing Profile Across Datasets.}
-Table~\ref{tab:routing_profile} shows how the learned dispatcher behaves on the three finalized routed evaluations currently available in this draft.
-The contrast across datasets is informative.
-ChartQA is dominated by Stage 2, PlotQA activates both Stage 2 and Stage 5 more often, and FigureQA is routed overwhelmingly to Stage 4.
-This pattern supports the interpretation that the experts are not interchangeable; rather, they respond to the different supervision regimes emphasized during curriculum training.
+\paragraph{ChartQA Routing Profile.}
+Table~\ref{tab:routing_profile} reports the stage usage of the final routed ChartQA evaluation.
+The router is intentionally conservative: most samples are sent to Stage 2, while a small fraction is redirected to reasoning, visual-analysis, or code-oriented experts.
+This behavior matches the accuracy result in Table~\ref{tab:routing}: the current router is useful as a correction layer, but the oracle gap shows that a more discriminative dispatcher could exploit specialization more fully.
 
 \begin{table}[!t]
 \centering
 \footnotesize
 \resizebox{\columnwidth}{!}{%
-\begin{tabular}{lcccc}
+\begin{tabular}{lcc}
 \toprule
-\textbf{Dataset} & \textbf{Stage 2} & \textbf{Stage 3} & \textbf{Stage 4} & \textbf{Stage 5} \\
+\textbf{Selected Expert} & \textbf{\# Samples} & \textbf{Ratio} \\
 \midrule
-ChartQA (2.5K) & 2375 (95.0\%) & 101 (4.04\%) & 22 (0.88\%) & 2 (0.08\%) \\
-PlotQA (1K) & 810 (81.0\%) & 10 (1.0\%) & 83 (8.3\%) & 97 (9.7\%) \\
-FigureQA (5K) & 80 (1.6\%) & 12 (0.2\%) & 4908 (98.2\%) & 0 (0.0\%) \\
+Stage 2: Basic VQA & 2375 & 95.00\% \\
+Stage 3: Reasoning VQA & 101 & 4.04\% \\
+Stage 4: Visual Analysis & 22 & 0.88\% \\
+Stage 5: Code Generation & 2 & 0.08\% \\
 \bottomrule
 \end{tabular}}
 \vspace{4pt}
-\caption{Predicted stage usage across the completed routed evaluations.}
+\caption{Predicted stage usage for the final ChartQA routed evaluation.}
 \label{tab:routing_profile}
 \end{table}
 
@@ -795,8 +923,35 @@ Standard LoRA SFT & 76.01 & $-6.59$ \\
 \label{tab:component_detail}
 \end{table}
 
+\paragraph{Internal Ablation Breakdown.}
+Table~\ref{tab:internal_ablation} further breaks down the ablation study on the five internal task families.
+These internal metrics are not substitutes for ChartQA, but they are useful for explaining \emph{why} each component matters.
+Removing \crs{} mainly harms reasoning, removing inheritance broadly weakens all downstream capabilities, and removing staging hurts every task because the model loses the intended capability sequence.
+
+\begin{table}[!t]
+\centering
+\footnotesize
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Configuration} & \textbf{T1} & \textbf{T2} & \textbf{T3} & \textbf{T4} & \textbf{T5} \\
+& Desc. & VQA & Reas. & Vis. & Code \\
+\midrule
+Full 2D-CL & 25.0 & 24.2 & 100.0 & 81.3 & 100.0 \\
+w/o Staging & 18.4 & 21.6 & 78.3 & 68.7 & 84.2 \\
+w/o Difficulty & 23.2 & 23.1 & 96.8 & 77.4 & 95.6 \\
+w/o CRS & 24.6 & 23.8 & 72.4 & 79.8 & 98.4 \\
+w/o Inheritance & 16.2 & 19.4 & 68.6 & 62.1 & 76.8 \\
+Flat SFT & 12.8 & 18.2 & 58.4 & 54.6 & 62.4 \\
+\bottomrule
+\end{tabular}}
+\vspace{4pt}
+\caption{Internal validation breakdown for ablation configurations. T1 is BLEU, while T2--T5 are accuracy (\%).}
+\label{tab:internal_ablation}
+\end{table}
+
 \paragraph{Multi-Task Profile.}
-Table~\ref{tab:task_profile} compares curriculum training against standard SFT on the five internal task families.
+Table~\ref{tab:task_profile} compares curriculum training against flat no-curriculum SFT on the five internal task families.
 The largest gains occur on reasoning and code-related tasks, which aligns with the design motivation of \crs{} and staged capability building.
 
 \begin{table}[!t]
@@ -804,13 +959,13 @@ The largest gains occur on reasoning and code-related tasks, which aligns with t
 \small
 \begin{tabular}{lcc}
 \toprule
-\textbf{Task Type} & \textbf{\method{}} & \textbf{Standard SFT} \\
+\textbf{Task Type} & \textbf{\method{}} & \textbf{Flat SFT} \\
 \midrule
 T1: Description (BLEU) & 25.0 & 12.8 \\
-T2: Basic VQA (Acc.) & 25.1 & 18.4 \\
-T3: Reasoning (Acc.) & 98.6 & 60.2 \\
-T4: Visual Analysis (Acc.) & 82.1 & 55.4 \\
-T5: Code Generation (Acc.) & 99.2 & 63.1 \\
+T2: Basic VQA (Acc.) & 24.2 & 18.2 \\
+T3: Reasoning (Acc.) & 100.0 & 58.4 \\
+T4: Visual Analysis (Acc.) & 81.3 & 54.6 \\
+T5: Code Generation (Acc.) & 100.0 & 62.4 \\
 \bottomrule
 \end{tabular}
 \vspace{4pt}
@@ -818,6 +973,7 @@ T5: Code Generation (Acc.) & 99.2 & 63.1 \\
 \label{tab:task_profile}
 \end{table}
 
+\IEEEtriggeratref{19}
 \bibliographystyle{IEEEtran}
 \bibliography{references}
 

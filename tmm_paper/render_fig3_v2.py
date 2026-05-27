@@ -223,6 +223,140 @@ def draw_grouped_bar_chart(
     img.convert("RGB").save(out_path, format="PNG")
 
 
+def draw_fig3d_routing(
+    out_path: Path,
+    fig_w: float, fig_h: float, dpi: int,
+    title_fs: int, tick_fs: int, label_fs: int, value_fs: int,
+    ymin: float, ymax: float, tick_step: float, stamp: bool,
+):
+    categories = ["Stage 2", "Stage 3", "Stage 4", "Stage 5", "Pred. SAR", "Oracle"]
+    values = [82.12, 80.00, 82.00, 79.32, 82.60, 87.48]
+    colors = ["#2b6de8", "#8aa0c8", "#5b8def", "#a7b4c9", "#12b886", "#f59f00"]
+    gain_text = ["", "", "", "", "+0.48", "+5.36"]
+
+    w_px = max(1, int(round(fig_w * dpi)))
+    h_px = max(1, int(round(fig_h * dpi)))
+
+    img = Image.new("RGBA", (w_px, h_px), (255, 255, 255, 255))
+    draw = ImageDraw.Draw(img)
+
+    font_title = try_load_font(fs_pt_to_px(title_fs, dpi), bold=True)
+    font_tick = try_load_font(fs_pt_to_px(tick_fs, dpi), bold=False)
+    font_label = try_load_font(fs_pt_to_px(label_fs, dpi), bold=False)
+    font_value = try_load_font(fs_pt_to_px(value_fs, dpi), bold=True)
+
+    title = "Routing Analysis on ChartQA"
+    y_label = "Accuracy (%)"
+    x_label = ""
+    pad = max(10, int(round(min(w_px, h_px) * 0.02)))
+
+    title_w, title_h = text_size(draw, title, font_title)
+    tick_texts = []
+    t = ymin
+    while t <= ymax + 1e-9:
+        tick_texts.append(f"{t:.0f}")
+        t += tick_step
+    ytick_w_max = max((text_size(draw, txt, font_tick)[0] for txt in tick_texts), default=0)
+    xcat_h_max = max((text_size(draw, c, font_tick)[1] for c in categories), default=0)
+    value_h_max = max((text_size(draw, f"{v:.2f}", font_value)[1] for v in values), default=0)
+
+    rot_y = rotated_text_image(draw, y_label, font_label, "#000000", angle=90)
+
+    left_margin = pad + rot_y.size[0] + pad + ytick_w_max + pad
+    right_margin = pad * 3
+    top_margin = pad + title_h + pad + value_h_max * 2 + pad
+    bottom_margin = pad + xcat_h_max + pad
+
+    plot_x0 = left_margin
+    plot_y0 = top_margin
+    plot_x1 = w_px - right_margin
+    plot_y1 = h_px - bottom_margin
+    if plot_x1 <= plot_x0 + 1:
+        plot_x1 = plot_x0 + 1
+    if plot_y1 <= plot_y0 + 1:
+        plot_y1 = plot_y0 + 1
+
+    draw.text(((w_px - title_w) // 2, pad), title, font=font_title, fill="#000000")
+
+    grid_color = "#d0d0d0"
+    axis_color = "#000000"
+
+    def y_to_px(v: float) -> int:
+        if ymax == ymin:
+            return plot_y1
+        t01 = (v - ymin) / (ymax - ymin)
+        return int(round(plot_y1 - t01 * (plot_y1 - plot_y0)))
+
+    draw.line([plot_x0, plot_y1, plot_x1, plot_y1], fill=axis_color, width=1)
+    draw.line([plot_x0, plot_y0, plot_x0, plot_y1], fill=axis_color, width=1)
+
+    t = ymin
+    while t <= ymax + 1e-9:
+        y = y_to_px(t)
+        draw.line([plot_x0, y, plot_x1, y], fill=grid_color, width=1)
+        txt = f"{t:.0f}"
+        tw, th = text_size(draw, txt, font_tick)
+        draw.text((plot_x0 - pad // 2 - tw, y - th // 2), txt, font=font_tick, fill="#000000")
+        t += tick_step
+
+    best_fixed = values[0]
+    y_ref = y_to_px(best_fixed)
+    dash = max(4, int(round(h_px * 0.01)))
+    gap = max(3, int(round(h_px * 0.008)))
+    draw_dashed_vline(draw, plot_x0, y_ref, y_ref, color="#12b886", width=2, dash=dash, gap=gap)
+    x = plot_x0
+    while x < plot_x1:
+        x2 = min(plot_x1, x + dash)
+        draw.line([x, y_ref, x2, y_ref], fill="#12b886", width=2)
+        x = x2 + gap
+    ref_txt = "Best fixed: 82.12"
+    rtw, rth = text_size(draw, ref_txt, font_tick)
+    draw_text_top_left(draw, plot_x1 - rtw - pad, y_ref - rth - pad // 4, ref_txt, font_tick, "#12b886")
+
+    n = len(categories)
+    group_w = (plot_x1 - plot_x0) / max(1, n)
+    bar_w = group_w * 0.52
+
+    for idx, (cat, v, c, ann) in enumerate(zip(categories, values, colors, gain_text)):
+        cx = plot_x0 + (idx + 0.5) * group_w
+        x0 = int(round(cx - bar_w / 2))
+        x1 = int(round(cx + bar_w / 2))
+        y0 = y_to_px(v)
+        draw.rectangle([x0, y0, x1, plot_y1], fill=c, outline=None)
+
+        tw, th = text_size(draw, cat, font_tick)
+        draw.text((int(round(cx - tw / 2)), plot_y1 + pad // 2), cat, font=font_tick, fill="#000000")
+
+        val_txt = f"{v:.2f}%"
+        vtw, vth = text_size(draw, val_txt, font_value)
+        draw_text_top_left(draw, int(round(cx - vtw / 2)), y0 - vth - max(2, pad // 4), val_txt, font_value, "#000000")
+
+        if ann:
+            ann_color = "#12b886" if idx == 4 else "#f08c00"
+            atw, ath = text_size(draw, ann, font_value)
+            ann_y = y0 - vth - ath - max(6, pad // 3)
+            draw_text_top_left(draw, int(round(cx - atw / 2)), ann_y, ann, font_value, ann_color)
+
+    if x_label:
+        x_label_w, x_label_h = text_size(draw, x_label, font_label)
+        draw.text(
+            ((plot_x0 + plot_x1 - x_label_w) // 2, plot_y1 + pad // 2 + xcat_h_max + pad // 2),
+            x_label,
+            font=font_label,
+            fill="#000000",
+        )
+
+    img.alpha_composite(rot_y, dest=(pad, int(round((plot_y0 + plot_y1) / 2 - rot_y.size[1] / 2))))
+
+    if stamp:
+        stamp_txt = datetime.now().strftime("generated %Y-%m-%d %H:%M:%S")
+        sw, sh = text_size(draw, stamp_txt, font_tick)
+        draw.text((w_px - pad - sw, h_px - pad - sh), stamp_txt, font=font_tick, fill="#666666")
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    img.convert("RGB").save(out_path, format="PNG")
+
+
 def draw_fig3a_ablation(
     out_path: Path,
     fig_w: float, fig_h: float, dpi: int,
@@ -356,7 +490,7 @@ def main():
     parser.add_argument("--label-fs", type=int, default=14)
     parser.add_argument("--value-fs", type=int, default=13)
     parser.add_argument("--stamp", action="store_true")
-    parser.add_argument("--mode", type=str, default="all", choices=["ablation", "cross-dataset", "cross-model", "all"])
+    parser.add_argument("--mode", type=str, default="all", choices=["ablation", "cross-dataset", "cross-model", "routing", "all"])
     args = parser.parse_args()
 
     script_dir = Path(__file__).resolve().parent
@@ -424,6 +558,17 @@ def main():
             group_annotations=ann,
         )
         print(f"[OK] saved to: {model_out}")
+
+    if args.mode in ("routing", "all"):
+        routing_out = out_dir / "fig3d_v2_routing_analysis.png"
+        draw_fig3d_routing(
+            out_path=routing_out,
+            fig_w=args.w, fig_h=args.h, dpi=args.dpi,
+            title_fs=args.title_fs, tick_fs=args.tick_fs,
+            label_fs=args.label_fs, value_fs=args.value_fs,
+            ymin=78.0, ymax=88.5, tick_step=2.0, stamp=args.stamp,
+        )
+        print(f"[OK] saved to: {routing_out}")
 
 
 if __name__ == "__main__":

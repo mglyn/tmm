@@ -100,7 +100,9 @@ Our contributions are as follows:
 Early chart QA systems decomposed the task into chart parsing followed by symbolic or textual reasoning~\cite{kafle2018dvqa,kahou2017figureqa}.
 While interpretable, such pipelines suffer from error propagation.
 Recent work instead favors end-to-end multimodal architectures.
-Pix2Struct~\cite{lee2023pix2struct} learns screen understanding through pretraining, MatCha~\cite{liu2023matcha} injects mathematical reasoning and chart derendering, UniChart~\cite{masry2023unichart} designs chart-specific pretraining tasks, DePlot~\cite{liu2023deplot} converts charts to tables before reasoning, and ChartLlama~\cite{han2023chartllama} instruction-tunes a multimodal LLM directly on chart data.
+Pix2Struct~\cite{lee2023pix2struct} learns screen understanding through pretraining, MatCha~\cite{liu2023matcha} injects mathematical reasoning and chart derendering, UniChart~\cite{masry2023unichart} designs chart-specific pretraining tasks, DePlot~\cite{liu2023deplot} converts charts to tables before reasoning, ChartReader~\cite{cheng2023chartreader} unifies chart derendering and comprehension, and ChartLlama~\cite{han2023chartllama} instruction-tunes a multimodal LLM directly on chart data.
+Recent chart-focused instruction-tuned models and benchmarks, including ChartAssistant~\cite{meng2024chartassistant}, ChartInstruct~\cite{masry2024chartinstruct}, ChartGemma~\cite{masry2024chartgemma}, and ChartBench~\cite{xu2023chartbench}, further show that chart understanding increasingly requires broad evaluation across chart types, visual patterns, and reasoning formats.
+Chart summarization and captioning benchmarks such as Chart-to-Text~\cite{kantharaj2022charttotext} and VisText~\cite{tang2023vistext} also emphasize that chart understanding is not limited to short-answer QA, but includes structured description and semantic explanation.
 On the cross-modal reasoning front, CroMIC-QA~\cite{qian2024cromic} studies how textual and visual signals complement each other for question answering over chart-style data.
 These methods demonstrate that chart understanding benefits from domain adaptation, but they mostly emphasize architecture or data scale.
 Our focus is different: we ask how much can be gained by structuring the training process itself.
@@ -119,11 +121,13 @@ We extend curriculum learning to a genuinely two-dimensional formulation, where 
 
 \paragraph{Reasoning Supervision and Modular Inference.}
 Chain-of-thought prompting can elicit reasoning, but it provides no direct training signal~\cite{wei2022chain}.
-Program-aided methods such as PAL and Program-of-Thoughts externalize computation through generated code~\cite{gao2023pal,chen2022program}, while recent work explores explicit reasoning supervision in visual settings~\cite{lu2024mathvista,shao2024visual}.
+Program-aided methods such as PAL and Program-of-Thoughts externalize computation through generated code~\cite{gao2023pal,chen2022program}, and visual programming systems such as VISPROG and ViperGPT use generated programs to compose vision modules at inference time~\cite{gupta2022visprog,suris2023vipergpt}.
+Recent work also explores explicit reasoning supervision in visual settings~\cite{lu2024mathvista,shao2024visual}.
 LININ~\cite{xue2025linin} integrates logic-constrained inference with cross-modal explanation generation for multimodal VQA, sharing our motivation of making the reasoning process explicit rather than implicit.
 Our \crs{} belongs to this line but is used as \emph{training-time} supervision rather than inference-time execution.
 In parallel, many practical systems increasingly rely on specialist components with a lightweight controller.
-Our \sar{} applies this idea to stage-specialized LoRA experts learned via curriculum, allowing inference-time specialization without sacrificing usability.
+Sparse expert routing and adapter composition have been studied in mixture-of-experts and transfer-learning systems~\cite{fedus2022switch,pfeiffer2021adapterfusion,huang2024lorahub}.
+Our \sar{} applies the same broad specialization principle to stage-specialized LoRA experts learned via curriculum, allowing inference-time specialization without sacrificing usability.
 The idea of managing multiple LoRA experts has also been explored in other multimedia tasks; for instance, AdaMesh~\cite{chen2025adamesh} employs a mixture-of-low-rank adaptation (MoLoRA) to efficiently capture personalized talking styles in 3D facial animation.
 \paragraph{Synthetic Data Generation and Curation.}
 Beyond model-side design, recent tooling work has begun to formalize the data-engineering side of synthetic supervision.
@@ -747,7 +751,7 @@ These results suggest that for multimodal reasoning tasks such as chart understa
 Our study has several limitations. First, the curriculum is trained primarily on synthetic charts; real-world charts with unusual layouts may induce distribution shift. Second, \sar{} relies on oracle routing labels derived from held-out data; joint end-to-end learning of experts and routing could improve performance further. Third, we focus on five common chart types; broader visualization forms remain out of scope. Fourth, all experiments are in English; multilingual chart understanding remains open.
 
 \appendices
-\section{Training Details}
+\section{Training Details and Additional Results}
 \paragraph{Dataset Composition.}
 Fig.~\ref{fig:dataset_dist} visualizes the composition of our synthetic training data.
 The chart-type distribution is approximately balanced, with bar and line charts slightly more frequent than area charts.
@@ -846,30 +850,8 @@ Wall-clock & 3h24m & 2h34m & 2h47m & 8h20m & 3h25m \\
 \label{tab:training_dynamics}
 \end{table}
 
-\section{Additional Results}
-\paragraph{Seed-wise Stability.}
-Table~\ref{tab:seedwise} reports the completed three-seed reruns for the learned router.
-The routed system varies only within 0.08 points on ChartQA, confirming that the final routed result is stable rather than an artifact of a favorable random seed.
-
-\begin{table}[!t]
-\centering
-\footnotesize
-\resizebox{\columnwidth}{!}{%
-\begin{tabular}{lcccc}
-\toprule
-\textbf{Seed} & \textbf{Val Acc.} & \textbf{Macro-F1} & \textbf{ChartQA} & \textbf{Elapsed (s)} \\
-\midrule
-42 & 69.26 & 36.48 & 82.56 & 720.62 \\
-3407 & 69.38 & 36.56 & 82.64 & 712.21 \\
-2025 & 69.01 & 38.57 & 82.64 & 720.80 \\
-\midrule
-\textbf{Mean $\pm$ Std} & --- & --- & \textbf{82.61 $\pm$ 0.04} & 717.88 \\
-\bottomrule
-\end{tabular}}
-\vspace{4pt}
-\caption{Seed-wise router reruns on ChartQA.}
-\label{tab:seedwise}
-\end{table}
+\paragraph{Additional Diagnostics.}
+We include two compact diagnostics that complement the main experimental section: the routing distribution of the deployed \sar{} module and an internal task-family breakdown for the ablation variants.
 
 \paragraph{ChartQA Routing Profile.}
 Table~\ref{tab:routing_profile} reports the stage usage of the final routed ChartQA evaluation.
@@ -893,34 +875,6 @@ Stage 5: Code Generation & 2 & 0.08\% \\
 \vspace{4pt}
 \caption{Predicted stage usage for the final ChartQA routed evaluation.}
 \label{tab:routing_profile}
-\end{table}
-
-\paragraph{Component Contributions.}
-Table~\ref{tab:component_detail} restates the ablation results from the perspective of absolute accuracy drop relative to the full routed system.
-This view is useful because it separates two different questions: which parts are required to train a strong expert, and which parts are required to turn that expert into the final deployed system.
-Under this perspective, adapter inheritance remains the dominant training component, while routing provides the final but comparatively small deployment-side gain.
-
-\begin{table}[!t]
-\centering
-\small
-\begin{tabular}{lcc}
-\toprule
-\textbf{Component Removed} & \textbf{Acc. (\%)} & \textbf{$\Delta$ vs.\ Full} \\
-\midrule
-\textit{Full \method{}+\sar{}} & \textit{82.60} & --- \\
-\midrule
-w/o Router & 82.12 & $-0.48$ \\
-w/o Adapter Inheritance & 77.32 & $-5.28$ \\
-w/o Task Staging & 78.64 & $-3.96$ \\
-w/o CRS & 79.48 & $-3.12$ \\
-w/o Difficulty Ordering & 80.84 & $-1.76$ \\
-\midrule
-Standard LoRA SFT & 76.01 & $-6.59$ \\
-\bottomrule
-\end{tabular}
-\vspace{4pt}
-\caption{Contribution of each component measured as the accuracy drop relative to the full routed system.}
-\label{tab:component_detail}
 \end{table}
 
 \paragraph{Internal Ablation Breakdown.}
@@ -950,30 +904,7 @@ Flat SFT & 12.8 & 18.2 & 58.4 & 54.6 & 62.4 \\
 \label{tab:internal_ablation}
 \end{table}
 
-\paragraph{Multi-Task Profile.}
-Table~\ref{tab:task_profile} compares curriculum training against flat no-curriculum SFT on the five internal task families.
-The largest gains occur on reasoning and code-related tasks, which aligns with the design motivation of \crs{} and staged capability building.
-
-\begin{table}[!t]
-\centering
-\small
-\begin{tabular}{lcc}
-\toprule
-\textbf{Task Type} & \textbf{\method{}} & \textbf{Flat SFT} \\
-\midrule
-T1: Description (BLEU) & 25.0 & 12.8 \\
-T2: Basic VQA (Acc.) & 24.2 & 18.2 \\
-T3: Reasoning (Acc.) & 100.0 & 58.4 \\
-T4: Visual Analysis (Acc.) & 81.3 & 54.6 \\
-T5: Code Generation (Acc.) & 100.0 & 62.4 \\
-\bottomrule
-\end{tabular}
-\vspace{4pt}
-\caption{Performance across internal task families. Curriculum learning most strongly improves reasoning-heavy capabilities.}
-\label{tab:task_profile}
-\end{table}
-
-\IEEEtriggeratref{19}
+\IEEEtriggeratref{27}
 \bibliographystyle{IEEEtran}
 \bibliography{references}
 
